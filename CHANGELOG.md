@@ -35,3 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     input, a focus ring distinct from selection, `neighborhood` mode, and
     labels always shown for the focus and its neighbours.
   - A measured benchmark at 650 nodes and at 4,000 nodes / 6,000 links (README).
+
+### Changed
+
+- CI: re-pin the org third-party allowlist to the commit that grants `three`
+  to this package (owner, q_2b73af5d, 2026-11-26). Consumers do nothing.
