@@ -1,0 +1,122 @@
+{
+  "profile": "hardware",
+  "measuredAt": "2026-11-26T05:38:16.358Z",
+  "browser": "chromium 159.0.8154.6 (headless)",
+  "webgl": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 (0x00002488) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "viewport": "1280x800 @1x",
+  "cases": [
+    {
+      "label": "2D, 650 nodes",
+      "renderer": "2d canvas",
+      "nodes": 650,
+      "links": 900,
+      "frameCostMs": {
+        "frames": 240,
+        "mean": 0.21,
+        "p50": 0.2,
+        "p95": 0.4,
+        "max": 0.8
+      },
+      "rafIntervalMs": {
+        "frames": 240,
+        "mean": 16.67,
+        "p50": 16.7,
+        "p95": 16.8,
+        "max": 16.8
+      }
+    },
+    {
+      "label": "2D, 4,000 nodes / 6,000 links",
+      "renderer": "2d canvas",
+      "nodes": 4000,
+      "links": 6000,
+      "frameCostMs": {
+        "frames": 240,
+        "mean": 0.91,
+        "p50": 0.9,
+        "p95": 1.3,
+        "max": 1.8
+      },
+      "rafIntervalMs": {
+        "frames": 240,
+        "mean": 16.67,
+        "p50": 16.7,
+        "p95": 16.8,
+        "max": 16.8
+      }
+    },
+    {
+      "label": "3D cosmos, 650 nodes",
+      "renderer": "3d webgl (cosmos)",
+      "nodes": 650,
+      "links": 900,
+      "frameCostMs": {
+        "frames": 240,
+        "mean": 0.26,
+        "p50": 0.3,
+        "p95": 0.5,
+        "max": 0.6
+      },
+      "rafIntervalMs": {
+        "frames": 240,
+        "mean": 16.67,
+        "p50": 16.7,
+        "p95": 16.8,
+        "max": 16.8
+      }
+    },
+    {
+      "label": "3D cosmos, 4,000 nodes / 6,000 links",
+      "renderer": "3d webgl (cosmos)",
+      "nodes": 4000,
+      "links": 6000,
+      "frameCostMs": {
+        "frames": 240,
+        "mean": 1.01,
+        "p50": 1,
+        "p95": 1.4,
+        "max": 1.8
+      },
+      "rafIntervalMs": {
+        "frames": 240,
+        "mean": 16.67,
+        "p50": 16.7,
+        "p95": 16.8,
+        "max": 16.8
+      }
+    }
+  ],
+  "checks": {
+    "labels2dVisible": 30,
+    "selected3d": "agent-0",
+    "handles3d": {
+      "renderer": "3d",
+      "nodes": "650",
+      "selected": "agent-0",
+      "labels": 13,
+      "clusterLabels": 8
+    },
+    "clicked2d": "agent-0",
+    "gamepad": {
+      "step2d": {
+        "seq": [
+          "agent-7",
+          "agent-194",
+          "agent-194",
+          "agent-134"
+        ],
+        "focusedAttr": "agent-134",
+        "neighbors": 4
+      },
+      "step3d": {
+        "seq": [
+          "agent-7",
+          "agent-194"
+        ],
+        "yawMoved": 0.3,
+        "focusedAttr": "agent-194"
+      }
+    }
+  },
+  "console": []
+}

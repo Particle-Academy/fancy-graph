@@ -1,0 +1,98 @@
+/** A point or direction in world space. 2D layouts leave z at 0. */
+export type Vec3 = [number, number, number];
+
+/**
+ * A node, as plain JSON. Only `id` is required. Everything an app wants to
+ * carry for its own renderers goes in `data`; the kit never reads it.
+ */
+export interface GraphNode {
+  id: string;
+  /** Shown as TEXT, never HTML. Defaults to the id. */
+  label?: string;
+  /** Used for default colours and for `clusters="group"`. */
+  group?: string;
+  /** World-space radius. Defaults to a size derived from the node's degree. */
+  size?: number;
+  /** Any CSS colour the renderer can parse (`#rrggbb` works everywhere). */
+  color?: string;
+  /** Seed position. With `fixed`, the node is pinned there. */
+  x?: number;
+  y?: number;
+  z?: number;
+  fixed?: boolean;
+  data?: Record<string, unknown>;
+}
+
+export interface GraphLink {
+  id?: string;
+  source: string;
+  target: string;
+  /** Defaults to 1. Used by layouts, and to keep the strongest links when capped. */
+  weight?: number;
+  kind?: string;
+  data?: Record<string, unknown>;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  links: GraphLink[];
+}
+
+export interface IndexedLink {
+  /** Position in `IndexedGraph.links`. */
+  index: number;
+  a: number;
+  b: number;
+  weight: number;
+  link: GraphLink;
+}
+
+/** A graph after validation, with indices instead of ids. Built by `normalizeGraph`. */
+export interface IndexedGraph {
+  nodes: GraphNode[];
+  links: IndexedLink[];
+  index: Map<string, number>;
+  /** Sum of link weights per node. */
+  degree: Float64Array;
+  /** Unique neighbour indices per node. */
+  neighbors: number[][];
+  /** Link indices touching each node. */
+  incident: number[][];
+  dropped: {
+    /** Nodes beyond `limits.maxNodes`. */
+    nodes: number;
+    /** Valid links beyond `limits.maxLinks` (the weakest are dropped). */
+    links: number;
+    /** Links to a missing node, self-links, and malformed links. */
+    invalidLinks: number;
+    duplicateNodes: number;
+  };
+}
+
+/**
+ * A group of nodes drawn as one thing: a galaxy, a community, a hull. Either a
+ * layout supplies them (`GraphLayoutStepper.clusters`) or the view computes them
+ * from `clusters="group"`.
+ */
+export interface GraphCluster {
+  id: string;
+  label?: string;
+  center: Vec3;
+  radius: number;
+  /** Indices of member nodes. */
+  members: number[];
+  color?: string;
+  /** For flat clusters in 3D (a galaxy disc): the plane's normal. */
+  normal?: Vec3;
+  data?: Record<string, unknown>;
+}
+
+/** Where a change came from. Agents act through `"agent"`; the kit never guesses. */
+export type GraphActivitySource = "user" | "agent" | "api";
+
+export interface GraphActivity {
+  type: "select" | "hover" | "focus" | "camera" | "search";
+  id?: string | null;
+  source: GraphActivitySource;
+  at: number;
+}

@@ -1,0 +1,128 @@
+{
+  "name": "@particle-academy/fancy-graph",
+  "version": "0.1.0",
+  "description": "Knowledge-graph map viewer for React: a controlled <GraphView> over plain JSON nodes and links, with pluggable layout, physics and rendering. 2D canvas in the core; 3D (three.js) on a subpath.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Particle-Academy/fancy-graph.git"
+  },
+  "homepage": "https://github.com/Particle-Academy/fancy-graph#readme",
+  "bugs": "https://github.com/Particle-Academy/fancy-graph/issues",
+  "type": "module",
+  "sideEffects": ["./dist/worker.js", "./dist/worker.cjs"],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./core": {
+      "import": {
+        "types": "./dist/core.d.ts",
+        "default": "./dist/core.js"
+      },
+      "require": {
+        "types": "./dist/core.d.cts",
+        "default": "./dist/core.cjs"
+      }
+    },
+    "./worker": {
+      "import": {
+        "types": "./dist/worker.d.ts",
+        "default": "./dist/worker.js"
+      },
+      "require": {
+        "types": "./dist/worker.d.cts",
+        "default": "./dist/worker.cjs"
+      }
+    },
+    "./three": {
+      "import": {
+        "types": "./dist/three.d.ts",
+        "default": "./dist/three.js"
+      },
+      "require": {
+        "types": "./dist/three.d.cts",
+        "default": "./dist/three.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "AGENTS.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "tsc --noEmit && eslint .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "bench": "vitest run --config vitest.bench.config.ts"
+  },
+  "keywords": [
+    "react",
+    "graph",
+    "knowledge-graph",
+    "network",
+    "force-directed",
+    "canvas",
+    "three",
+    "webgl",
+    "fancy"
+  ],
+  "peerDependencies": {
+    "@particle-academy/fancy-3d-three": ">=0.2.1 <2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": ">=0.160.0"
+  },
+  "peerDependenciesMeta": {
+    "@particle-academy/fancy-3d-three": {
+      "optional": true
+    },
+    "three": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@particle-academy/fancy-3d": "^0.5.0",
+    "@particle-academy/fancy-3d-three": "^0.2.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@types/three": "^0.184.1",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "jsdom": "^29.1.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "three": "^0.184.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^4.1.12"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "overrides": {
+    "esbuild": "^0.28.1",
+    "source-map-js": "^1.2.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

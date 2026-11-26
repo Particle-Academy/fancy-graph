@@ -1,0 +1,238 @@
+import { NODE_ACTIVE, NODE_NEIGHBOR } from "./interaction";
+
+export interface LabelCandidate {
+  index: number;
+  /** Projected node centre and radius, CSS px. */
+  x: number;
+  y: number;
+  radius: number;
+  text: string;
+  /** Higher places first. */
+  priority: number;
+  /** Placed even when it overlaps (the selection, the hover). */
+  forced?: boolean;
+}
+
+export interface PlacedLabel {
+  index: number;
+  id?: string;
+  text: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  state?: "active" | "neighbor" | "normal";
+}
+
+export interface PlaceOptions {
+  /** Labels in total; forced labels may go past it. */
+  maxLabels: number;
+  /** Forced labels (selection, hover, the focused node and its neighbours). Default: no cap. */
+  maxForced?: number;
+  width: number;
+  height: number;
+  /** Estimated px per character. Defaults to 6.2 (11px UI font). */
+  charWidth?: number;
+  /** Label box height. Defaults to 14. */
+  lineHeight?: number;
+  /** Gap between the node edge and its label. Defaults to 4. */
+  gap?: number;
+}
+
+/**
+ * Greedy label placement: highest priority first, each label to the right of
+ * its node, rejected when its box overlaps one already placed (forced labels
+ * are never rejected). A uniform grid keeps the overlap test cheap at a few
+ * thousand candidates.
+ */
+export function placeLabels(candidates: LabelCandidate[], opts: PlaceOptions): PlacedLabel[] {
+  const cw = opts.charWidth ?? 6.2;
+  const lh = opts.lineHeight ?? 14;
+  const gap = opts.gap ?? 4;
+  const sorted = [...candidates].sort((a, b) => b.priority - a.priority);
+  const placed: PlacedLabel[] = [];
+  const cell = 64;
+  const grid = new Map<number, PlacedLabel[]>();
+  const key = (cx: number, cy: number) => cx * 100003 + cy;
+  const maxForced = opts.maxForced ?? Infinity;
+  let forcedCount = 0;
+  for (const c of sorted) {
+    if (c.forced) {
+      if (forcedCount >= maxForced) continue;
+    } else if (placed.length >= opts.maxLabels) continue;
+    const w = Array.from(c.text).length * cw;
+    const x = c.x + Math.max(3, c.radius) + gap;
+    const y = c.y - lh / 2;
+    if (x > opts.width || x + w < 0 || y > opts.height || y + lh < 0) continue;
+    const x0 = Math.floor(x / cell), x1 = Math.floor((x + w) / cell), y0 = Math.floor(y / cell), y1 = Math.floor((y + lh) / cell);
+    if (!c.forced) {
+      let hit = false;
+      for (let gx = x0; gx <= x1 && !hit; gx++)
+        for (let gy = y0; gy <= y1 && !hit; gy++)
+          for (const p of grid.get(key(gx, gy)) ?? []) if (x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + lh > p.y) {
+            hit = true;
+            break;
+          }
+      if (hit) continue;
+    }
+    const label: PlacedLabel = { index: c.index, text: c.text, x, y, w, h: lh };
+    placed.push(label);
+    if (c.forced) forcedCount++;
+    for (let gx = x0; gx <= x1; gx++)
+      for (let gy = y0; gy <= y1; gy++) {
+        const k = key(gx, gy);
+        const list = grid.get(k);
+        if (list) list.push(label);
+        else grid.set(k, [label]);
+      }
+  }
+  return placed;
+}
+
+export interface CandidateInput {
+  /** 4 floats per node: x, y, radius px, depth (0 = hidden). */
+  screen: Float32Array;
+  states: Uint8Array;
+  selected: number;
+  hovered: number;
+  matches: ReadonlySet<number> | null;
+  width: number;
+  height: number;
+  labelMinPx: number;
+  text: (index: number) => string;
+  /** The keyboard / gamepad focus: it and its neighbours are always labelled. */
+  focused?: number;
+  focusNeighbors?: readonly number[];
+  /** Label nothing else while something is focused (neighbourhood mode). */
+  cullOthers?: boolean;
+}
+
+/**
+ * Which nodes compete for a label: the selection and hover always; matches and
+ * the focus's neighbours next; otherwise only nodes drawn large enough, and
+ * none at all while something is selected or searched (it would be noise).
+ */
+export function labelCandidates(input: CandidateInput): LabelCandidate[] {
+  const { screen, states, selected, hovered, matches, width, height } = input;
+  const out: LabelCandidate[] = [];
+  const focused = input.focused ?? -1;
+  const near = new Set(focused >= 0 ? (input.focusNeighbors ?? []) : []);
+  const quiet = selected >= 0 || (matches && matches.size > 0) || (!!input.cullOthers && focused >= 0);
+  const n = screen.length >> 2;
+  for (let i = 0; i < n; i++) {
+    const depth = screen[i * 4 + 3];
+    if (depth <= 0) continue;
+    const x = screen[i * 4], y = screen[i * 4 + 1], r = screen[i * 4 + 2];
+    if (x < -40 || y < -20 || x > width + 40 || y > height + 20) continue;
+    let priority = r;
+    let forced = false;
+    if (i === focused) {
+      priority += 9e6;
+      forced = true;
+    } else if (near.has(i)) {
+      priority += 2e6;
+      forced = true;
+    } else if (i === selected) {
+      priority += 1e7;
+      forced = true;
+    } else if (i === hovered) {
+      priority += 1e6;
+      forced = true;
+    } else if (matches?.has(i)) priority += 1e5;
+    else if (states[i] === NODE_NEIGHBOR) priority += 1e4;
+    else if (quiet || r < input.labelMinPx) continue;
+    else if (states[i] !== NODE_ACTIVE && hovered >= 0) priority *= 0.5;
+    out.push({ index: i, x, y, radius: r, text: input.text(i), priority, forced });
+  }
+  return out;
+}
+
+export interface ClusterLabel {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  color?: string;
+}
+
+const LABEL_CSS =
+  "position:absolute;left:0;top:0;white-space:nowrap;pointer-events:none;will-change:transform;display:none;" +
+  "font:11px/14px ui-sans-serif,system-ui,sans-serif;color:var(--fancy-graph-label,#e8eef5);" +
+  "text-shadow:0 0 4px var(--fancy-graph-label-halo,#000),0 0 2px var(--fancy-graph-label-halo,#000)";
+const CLUSTER_CSS =
+  "position:absolute;left:0;top:0;white-space:nowrap;pointer-events:none;will-change:transform;display:none;" +
+  "font:600 12px/16px ui-sans-serif,system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;" +
+  "text-shadow:0 0 6px var(--fancy-graph-label-halo,#000),0 0 2px var(--fancy-graph-label-halo,#000)";
+
+/**
+ * A pooled DOM layer for labels. Text goes in through `textContent` only, so a
+ * label is inert whatever it contains. Elements are reused and moved with a
+ * transform, never created per frame.
+ */
+export class LabelLayer {
+  private readonly pool: HTMLDivElement[] = [];
+  private readonly clusters: HTMLDivElement[] = [];
+
+  constructor(
+    private readonly root: HTMLElement,
+    opts: { pool: number },
+  ) {
+    for (let i = 0; i < opts.pool; i++) {
+      const el = root.ownerDocument.createElement("div");
+      el.style.cssText = LABEL_CSS;
+      el.setAttribute("data-fancy-graph-label", "");
+      root.appendChild(el);
+      this.pool.push(el);
+    }
+  }
+
+  render(labels: PlacedLabel[]): void {
+    const used = Math.min(labels.length, this.pool.length);
+    for (let i = 0; i < used; i++) {
+      const l = labels[i];
+      const el = this.pool[i];
+      if (el.textContent !== l.text) el.textContent = l.text;
+      const id = l.id ?? String(l.index);
+      if (el.dataset.fancyGraphLabel !== id) el.dataset.fancyGraphLabel = id;
+      const state = l.state ?? "normal";
+      if (el.dataset.fancyGraphLabelState !== state) el.dataset.fancyGraphLabelState = state;
+      el.style.fontWeight = state === "active" ? "700" : "400";
+      el.style.transform = `translate(${l.x.toFixed(1)}px,${l.y.toFixed(1)}px)`;
+      if (el.style.display !== "block") el.style.display = "block";
+    }
+    for (let i = used; i < this.pool.length; i++) {
+      const el = this.pool[i];
+      if (el.style.display !== "none") {
+        el.style.display = "none";
+        el.dataset.fancyGraphLabel = "";
+      }
+    }
+  }
+
+  renderClusters(labels: ClusterLabel[]): void {
+    while (this.clusters.length < labels.length) {
+      const el = this.root.ownerDocument.createElement("div");
+      el.style.cssText = CLUSTER_CSS;
+      this.root.appendChild(el);
+      this.clusters.push(el);
+    }
+    this.clusters.forEach((el, i) => {
+      const l = labels[i];
+      if (!l) {
+        el.style.display = "none";
+        return;
+      }
+      if (el.textContent !== l.text) el.textContent = l.text;
+      el.setAttribute("data-fancy-graph-cluster-label", l.id);
+      el.style.color = l.color ?? "var(--fancy-graph-label,#e8eef5)";
+      el.style.transform = `translate(${l.x.toFixed(1)}px,${l.y.toFixed(1)}px) translate(-50%,-100%)`;
+      el.style.display = "block";
+    });
+  }
+
+  dispose(): void {
+    for (const el of [...this.pool, ...this.clusters]) el.remove();
+    this.pool.length = 0;
+    this.clusters.length = 0;
+  }
+}

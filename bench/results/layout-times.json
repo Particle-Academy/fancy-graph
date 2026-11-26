@@ -1,0 +1,76 @@
+{
+  "measuredAt": "2026-11-26T05:33:31.848Z",
+  "runtime": "node v24.22.1",
+  "results": [
+    {
+      "label": "force, 650 nodes (2D)",
+      "nodes": 650,
+      "links": 900,
+      "dimensions": 2,
+      "initMs": 0.8,
+      "stepMs": {
+        "samples": 120,
+        "mean": 0.902,
+        "p50": 0.708,
+        "p95": 1.493,
+        "max": 5.396
+      }
+    },
+    {
+      "label": "force, 4,000 nodes / 6,000 links (2D)",
+      "nodes": 4000,
+      "links": 6000,
+      "dimensions": 2,
+      "initMs": 0.96,
+      "stepMs": {
+        "samples": 60,
+        "mean": 6.472,
+        "p50": 6.291,
+        "p95": 8.552,
+        "max": 9.41
+      }
+    },
+    {
+      "label": "force, 4,000 nodes / 6,000 links (3D)",
+      "nodes": 4000,
+      "links": 6000,
+      "dimensions": 3,
+      "initMs": 3.13,
+      "stepMs": {
+        "samples": 60,
+        "mean": 12.681,
+        "p50": 12.463,
+        "p95": 15.676,
+        "max": 17.53
+      }
+    },
+    {
+      "label": "cosmos, 650 nodes (orbits, per frame)",
+      "nodes": 650,
+      "links": 900,
+      "dimensions": 3,
+      "initMs": 11.78,
+      "stepMs": {
+        "samples": 300,
+        "mean": 0.024,
+        "p50": 0.021,
+        "p95": 0.037,
+        "max": 0.179
+      }
+    },
+    {
+      "label": "cosmos, 4,000 nodes / 6,000 links (orbits, per frame)",
+      "nodes": 4000,
+      "links": 6000,
+      "dimensions": 3,
+      "initMs": 19.15,
+      "stepMs": {
+        "samples": 300,
+        "mean": 0.132,
+        "p50": 0.124,
+        "p95": 0.162,
+        "max": 0.375
+      }
+    }
+  ]
+}
