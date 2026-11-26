@@ -85,7 +85,8 @@ label, labelHalo, focus, selection }`. CSS variables override the base:
 `--fancy-graph-background`, `--fancy-graph-link`, `--fancy-graph-label`,
 `--fancy-graph-label-halo`, `--fancy-focus`, `--fancy-graph-type-<type>`. Node
 colour precedence: `nodeColor` prop, then `node.color`, then the theme's
-`typeColors`, then `--fancy-graph-type-<type>`, then the palette. The root
+`typeColors`, then `--fancy-graph-type-<type>`, then the palette, which gives
+each type in the graph its own colour (`assignTypeColors`). The root
 carries `data-fancy-graph-preset` and `data-fancy-graph-theme`.
 
 ## API essentials

@@ -60,4 +60,4 @@ export {
   type WorkerLayoutOptions,
 } from "./layout/worker-layout";
 export { colorFor, parseColor, DEFAULT_PALETTE } from "./color";
-export { DARK_THEME, LIGHT_THEME, applyThemeVars, cssVar, resolveTheme, typeColor, type GraphTheme, type GraphThemeInput } from "./theme";
+export { DARK_THEME, LIGHT_THEME, applyThemeVars, cssVar, resolveTheme, assignTypeColors, typeColor, typeColorsFor, type GraphTheme, type GraphThemeInput } from "./theme";

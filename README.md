@@ -96,7 +96,9 @@ Every colour also reads a CSS variable, so your kit's tokens can drive it:
 `--fancy-graph-background`, `--fancy-graph-link`, `--fancy-graph-label`,
 `--fancy-graph-label-halo`, `--fancy-focus`, and `--fancy-graph-type-<type>` for
 each node type (`.app { --fancy-graph-type-person: var(--color-pink-400); }`).
-An explicit `nodeColor` or a node's own `color` still wins.
+An explicit `nodeColor` or a node's own `color` still wins. Types you leave to
+the palette each get their own colour within a graph (up to the palette's ten),
+the same whatever order the data arrives in.
 
 ### Your own layout
 
@@ -149,9 +151,9 @@ GPU: NVIDIA RTX 3070 through ANGLE / Direct3D 11.
 | View | Nodes / links | Frame cost p50 / p95 / max (ms) | Frame interval p50 / p95 (ms) |
 |---|---|---|---|
 | 2D canvas | 650 / 900 | 0.2 / 0.3 / 0.7 | 16.7 / 16.8 |
-| 2D canvas | 4,000 / 6,000 | 0.9 / 1.4 / 2.6 | 16.7 / 16.8 |
-| 3D cosmos | 650 / 900 | 0.3 / 0.4 / 0.6 | 16.7 / 16.7 |
-| 3D cosmos | 4,000 / 6,000 | 1.5 / 1.8 / 2.1 | 16.7 / 16.8 |
+| 2D canvas | 4,000 / 6,000 | 0.8 / 1.2 / 2.1 | 16.7 / 16.8 |
+| 3D cosmos | 650 / 900 | 0.3 / 0.5 / 0.6 | 16.7 / 16.7 |
+| 3D cosmos | 4,000 / 6,000 | 1.0 / 1.5 / 2.1 | 16.7 / 16.8 |
 
 Run to run, these move by a few tenths of a millisecond: two back-to-back runs
 of the previous build (before presets) on the same machine measured 0.9 and 1.4

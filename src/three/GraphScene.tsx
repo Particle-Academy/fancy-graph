@@ -3,7 +3,7 @@ import * as THREE from "@particle-academy/fancy-3d-three/three";
 import { useImperativeHandle, useLayoutEffect, useMemo, useRef, type Ref } from "react";
 import type { Camera3D } from "../camera";
 import type { GraphLayout } from "../layout/contract";
-import { applyThemeVars, resolveTheme, typeColor } from "../theme";
+import { applyThemeVars, resolveTheme, typeColorsFor } from "../theme";
 import { resolvePreset3D, type GraphPreset3D, type GraphPreset3DId } from "./presets/presets3d";
 import type { GraphViewHandleBase } from "../react/GraphView";
 import { useGraphModel, type GraphViewBaseProps } from "../react/model";
@@ -97,13 +97,14 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
       root.dataset.fancyGraphPreset = pr.id;
     }
     const nodeSize = p.nodeSize ?? pr.nodeSize;
+    const typeColorOf = typeColorsFor(theme, m.graph.nodes, themeEl);
     return {
       renderers: rendersRef.current,
       clusters: p.clusters,
       clusterLabel: p.clusterLabel ?? pr.clusterLabel,
       nodeColor: (i, meta) => {
         const node = m.graph.nodes[i];
-        return p.nodeColor ? p.nodeColor(node, i, meta) : (node.color ?? typeColor(theme, node.group, themeEl));
+        return p.nodeColor ? p.nodeColor(node, i, meta) : (node.color ?? typeColorOf(node.group));
       },
       nodeSize: nodeSize ? (i, meta) => nodeSize(m.graph.nodes[i], i, meta) : undefined,
       labelOf: m.labelOf,

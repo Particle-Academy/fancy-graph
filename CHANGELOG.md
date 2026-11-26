@@ -48,6 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Theming: `theme` (`light`, `dark`, `auto`, or overrides with per-type
     colours), with every colour also read from a CSS variable so kit tokens can
     drive it (`--fancy-graph-background`, `--fancy-graph-type-<type>`, ...).
+  - Types left to the palette each get their own colour within a graph
+    (`assignTypeColors`): a type keeps its hashed colour unless another type
+    already holds it. Hashing each type on its own put five ordinary types
+    (person, project, topic, place, event) on three colours, found by the
+    fancy-labs graph benchmark.
   - `positionOf(id)` on every view handle; `forceLayout({ gravity })`; layer
     materials take `side: "double"`.
 

@@ -109,6 +109,55 @@ export function typeColor(theme: GraphTheme, group: string | undefined, el: Elem
   return colorFor(group, theme.palette);
 }
 
+/**
+ * A lookup from type to colour for one graph, built by `assignTypeColors` on
+ * first use, so a view walks its nodes once per graph and theme, not per node.
+ */
+export function typeColorsFor(theme: GraphTheme, nodes: readonly { group?: string }[], el: Element | null): (group: string | undefined) => string {
+  let map: Map<string, string> | null = null;
+  return (group) => {
+    if (!group) return typeColor(theme, group, el);
+    map ??= assignTypeColors(theme, nodes.map((n) => n.group), el);
+    return map.get(group) ?? typeColor(theme, group, el);
+  };
+}
+
+/** A type's set colour (the theme's map, then its CSS variable), or null when the palette decides. */
+function setTypeColor(theme: GraphTheme, group: string, el: Element | null): string | null {
+  if (theme.typeColors[group]) return theme.typeColors[group];
+  return cssVar(el, `--fancy-graph-type-${group.replace(/[^a-zA-Z0-9_-]/g, "-")}`) || null;
+}
+
+/**
+ * Every type in a graph, coloured so the types tell apart. A set colour (the
+ * theme's map, then `--fancy-graph-type-<type>`) wins. The rest share the
+ * palette: each type keeps its hashed slot unless another type already holds
+ * it, then takes the next free one, visiting types in sorted order so the input
+ * order changes nothing. Slots are reused only once every one is taken.
+ */
+export function assignTypeColors(theme: GraphTheme, groups: Iterable<string | undefined>, el: Element | null): Map<string, string> {
+  const out = new Map<string, string>();
+  const rest: string[] = [];
+  for (const g of new Set(groups)) {
+    if (!g) continue;
+    const set = setTypeColor(theme, g, el);
+    if (set) out.set(g, set);
+    else rest.push(g);
+  }
+  const palette = theme.palette;
+  if (!palette.length) return out;
+  const taken = new Set<string>(out.values());
+  rest.sort();
+  for (const g of rest) {
+    if (palette.every((c) => taken.has(c))) taken.clear();
+    let i = palette.indexOf(colorFor(g, palette));
+    while (taken.has(palette[i])) i = (i + 1) % palette.length;
+    out.set(g, palette[i]);
+    taken.add(palette[i]);
+  }
+  return out;
+}
+
 /** Sets the label colours on the root, so the label layer (pure CSS) follows the theme. */
 export function applyThemeVars(el: HTMLElement | null, theme: GraphTheme): void {
   if (!el) return;

@@ -8,7 +8,7 @@ import type { GraphActivitySource, GraphCluster, GraphNode } from "../types";
 import { effectiveFocus, freshCycle, stepFocusIndex, type PendingFocus } from "./navigation";
 import { useGraphModel, type GraphViewBaseProps } from "./model";
 import { resolvePreset2D, type GraphPreset2D, type GraphPreset2DId } from "../presets/presets2d";
-import { applyThemeVars, resolveTheme, typeColor } from "../theme";
+import { applyThemeVars, resolveTheme, typeColorsFor } from "../theme";
 
 export interface GraphViewHandleBase {
   /** Select a node (or null), through the same controlled path a click takes. */
@@ -127,13 +127,14 @@ export function GraphView(props: GraphViewProps) {
       applyThemeVars(rootRef.current, theme);
       rootRef.current.dataset.fancyGraphTheme = theme.mode;
     }
+    const typeColorOf = typeColorsFor(theme, m.graph.nodes, themeEl);
     return {
       renderers: { ...(pr.renderers ?? {}), ...(p.renderers ?? {}) },
       clusters: p.clusters ?? pr.clusters,
       clusterLabel: p.clusterLabel ?? pr.clusterLabel,
       nodeColor: (i) => {
         const node = m.graph.nodes[i];
-        return p.nodeColor ? p.nodeColor(node, i) : (node.color ?? typeColor(theme, node.group, themeEl));
+        return p.nodeColor ? p.nodeColor(node, i) : (node.color ?? typeColorOf(node.group));
       },
       nodeSize: p.nodeSize ? (i) => p.nodeSize!(m.graph.nodes[i], i) : undefined,
       labelOf: m.labelOf,
