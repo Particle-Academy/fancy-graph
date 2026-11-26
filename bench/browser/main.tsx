@@ -5,8 +5,8 @@
  */
 import { createRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { forceLayout, GraphView, type GraphData, type GraphViewHandle } from "../../src/index";
-import { GraphView3D, type GraphScene3DHandle } from "../../src/three/index";
+import { forceLayout, GRAPH_PRESETS_2D, GraphView, type GraphData, type GraphViewHandle } from "../../src/index";
+import { GRAPH_PRESETS_3D, GraphView3D, type GraphScene3DHandle } from "../../src/three/index";
 import { COSMOS_COLORS, cosmosData } from "../../examples/cosmos/data";
 import { cosmosLayout } from "../../examples/cosmos/layout";
 import { cosmosProps, cosmosRenderers } from "../../examples/cosmos/renderers";
@@ -92,7 +92,51 @@ function Demo3D({ data, opts, handleRef }: { data: GraphData; opts: MountOptions
   );
 }
 
+/** A tree-shaped graph for the hierarchy preset: 4 roots, 3 children each, 3 grandchildren each. */
+function treeData(): GraphData {
+  const nodes: GraphData["nodes"] = [];
+  const links: GraphData["links"] = [];
+  const types = ["agent", "problem", "solution", "post"];
+  for (let r = 0; r < 4; r++) {
+    const root = `r${r}`;
+    nodes.push({ id: root, label: `Theme ${r + 1}`, group: types[r] });
+    for (let c = 0; c < 3; c++) {
+      const child = `${root}-${c}`;
+      nodes.push({ id: child, label: `Topic ${r + 1}.${c + 1}`, group: types[r] });
+      links.push({ source: root, target: child });
+      for (let g = 0; g < 3; g++) {
+        const leaf = `${child}-${g}`;
+        nodes.push({ id: leaf, label: `Note ${r + 1}.${c + 1}.${g + 1}`, group: types[(r + g + 1) % 4] });
+        links.push({ source: child, target: leaf });
+      }
+    }
+  }
+  return { nodes, links };
+}
+
 const harness = {
+  /** One built-in preset, as a consumer would use it: the preset and a theme, nothing else. */
+  async mountPreset(kind: "2d" | "3d", id: string, theme: "light" | "dark", selected: string | null) {
+    reset();
+    host().style.background = theme === "dark" ? "#0b1020" : "#f8fafc";
+    const data = id === "hierarchy" ? treeData() : (() => {
+      const { nodes, links } = cosmosData(kind === "3d" && id === "cosmos" ? 650 : 160, kind === "3d" && id === "cosmos" ? 900 : 220, 1);
+      return { nodes, links };
+    })();
+    if (kind === "2d") {
+      const ref = createRef<GraphViewHandle>();
+      root!.render(<GraphView ref={ref} data={data} preset={id as keyof typeof GRAPH_PRESETS_2D} theme={{ base: theme, typeColors: COSMOS_COLORS }} defaultSelected={selected} reducedMotion style={{ width: "100%", height: "100%" }} aria-label={`${id} preset`} />);
+      await waitFrames(20);
+      handle = ref.current;
+    } else {
+      const ref = createRef<GraphScene3DHandle>();
+      root!.render(<GraphView3D ref={ref} data={data} preset={id as keyof typeof GRAPH_PRESETS_3D} theme={{ base: theme, typeColors: COSMOS_COLORS }} defaultSelected={selected} flyOnSelect={false} reducedMotion style={{ width: "100%", height: "100%" }} aria-label={`${id} preset`} />);
+      await waitFrames(60);
+      handle = ref.current;
+    }
+    return handle!.getState();
+  },
+  presets: () => ({ "2d": Object.keys(GRAPH_PRESETS_2D), "3d": Object.keys(GRAPH_PRESETS_3D) }),
   async mount2d(opts: MountOptions) {
     reset();
     const { nodes, links } = cosmosData(opts.nodes, opts.links, 1);

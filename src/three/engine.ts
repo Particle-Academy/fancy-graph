@@ -187,6 +187,12 @@ export class StageEngine {
     if (this.homePending && n) this.goHome(true);
   }
 
+  /** Graph, layout and look together, so layers never mount against another layout's meta. */
+  setScene(graph: IndexedGraph, layout: GraphLayout, opts: Engine3DOptions) {
+    this.opts = opts;
+    this.setGraph(graph, layout);
+  }
+
   setOptions(opts: Engine3DOptions) {
     const layersChanged = opts.renderers !== this.opts.renderers;
     this.opts = opts;
@@ -290,7 +296,7 @@ export class StageEngine {
     const slots: GraphLayer3D[][] = [asList(R.background, () => []), asList(R.cluster, () => []), asList(R.link, () => [linkLayer3D()]), asList(R.node, () => [nodeLayer3D()])];
     slots.forEach((list, order) => {
       for (const layer of list) {
-        layer.mount({ group: this.group, renderOrder: order, graph: g, meta: this.runner?.meta, clusters: this.clusterCache, camera: this.stage.camera });
+        layer.mount({ group: this.group, renderOrder: order, graph: g, meta: this.runner?.meta, clusters: this.clusterCache, camera: this.stage.camera, colors: this.colors });
         this.layers.push(layer);
       }
     });
@@ -439,6 +445,21 @@ export class StageEngine {
 
   getClusters() {
     return this.clusterCache;
+  }
+
+  /** A node's world position this frame. */
+  positionOf(index: number): [number, number, number] | null {
+    const p = this.runner?.positions;
+    if (!p || index < 0 || index * 3 >= p.length) return null;
+    return [p[index * 3], p[index * 3 + 1], p[index * 3 + 2]];
+  }
+
+  /** A cluster's colour from its first member, so labels follow the theme. */
+  private memberHex(c: GraphCluster): string | null {
+    const i = c.members[0];
+    if (i === undefined || i * 3 + 2 >= this.colors.length) return null;
+    const h = (v: number) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, "0");
+    return `#${h(this.colors[i * 3])}${h(this.colors[i * 3 + 1])}${h(this.colors[i * 3 + 2])}`;
   }
 
   // ------------------------------------------------------------------ frame
@@ -597,8 +618,17 @@ export class StageEngine {
       const z = view[2] * cx + view[6] * cy + view[10] * cz + view[14];
       if (z >= 0) continue;
       const apparent = (c.radius * f) / -z;
+      // A flat cluster (a galaxy, a layer plane) is an ellipse on screen: lift its label by its projected height,
+      // radius x |normal . view|, not its full radius, or an edge-on plane's label floats far above it.
+      let lift = apparent;
+      if (c.normal) {
+        const cam = this.stage.camera.position;
+        const dx = cx - cam.x, dy = cy - cam.y, dz = cz - cam.z;
+        const len = Math.hypot(dx, dy, dz) || 1;
+        lift = apparent * Math.max(0.12, Math.abs((c.normal[0] * dx + c.normal[1] * dy + c.normal[2] * dz) / len));
+      }
       if (apparent < 12 || apparent > Math.min(W, H) * 0.6) continue;
-      cl.push({ id: c.id, text: truncateLabel(text, max), x: W / 2 + (x / -z) * f, y: H / 2 - (y / -z) * f - apparent - 10, color: c.color ?? colorFor(c.id) });
+      cl.push({ id: c.id, text: truncateLabel(text, max), x: W / 2 + (x / -z) * f, y: Math.max(18, H / 2 - (y / -z) * f - lift - 10), color: c.color ?? this.memberHex(c) ?? colorFor(c.id) });
     }
     this.labels.renderClusters(cl);
   }

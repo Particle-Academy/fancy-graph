@@ -43,8 +43,14 @@ by hand-typing a figure you did not measure.
   dependency of any kind (owner, 2026-11-26). `tests/entry-isolation.test.ts`
   walks the import graphs and scans every file to hold both. `@types/three`
   stays a devDependency because the re-export's declarations need it.
-- `examples/cosmos/` is the first acceptance case (beachhead's Cosmos view) built
-  only through the public plug points. It is consumer code and does not ship.
+- `src/presets/` (2D) and `src/three/presets/` (3D) hold the built-in views.
+  Each is only a layout plus renderers plus defaults, built on the public plug
+  points; the cosmos lives there too and is the reference example. A new preset
+  joins `GRAPH_PRESETS_2D` / `GRAPH_PRESETS_3D`, the parameterised tests in
+  `tests/presets2d.test.tsx` / `tests/presets3d.test.tsx`, the gallery in
+  `bench/browser/run.mjs` (its screenshot in `docs/presets/`), and the README.
+- `examples/cosmos/` is the first acceptance case (beachhead's Cosmos view): its
+  data and colours, reusing the cosmos preset. It does not ship.
 
 ## Invariants
 

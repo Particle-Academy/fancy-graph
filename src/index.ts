@@ -65,9 +65,21 @@ export {
   type WorkerLayoutOptions,
 } from "./layout/worker-layout";
 export { colorFor, parseColor, DEFAULT_PALETTE } from "./color";
+export { DARK_THEME, LIGHT_THEME, applyThemeVars, cssVar, resolveTheme, typeColor, type GraphTheme, type GraphThemeInput } from "./theme";
 export { GraphView, type GraphViewHandle, type GraphViewHandleBase, type GraphViewProps, type GraphViewState } from "./react/GraphView";
 export { useGraphModel, useReducedMotion, type ChangeMeta, type GraphModel, type GraphViewBaseProps } from "./react/model";
 export type { ClusterSource } from "./render2d/engine";
+export {
+  GRAPH_PRESETS_2D,
+  clusteredPreset,
+  hierarchyPreset,
+  networkPreset,
+  radialPreset,
+  resolvePreset2D,
+  type GraphPreset2D,
+  type GraphPreset2DId,
+  type PresetState,
+} from "./presets/presets2d";
 export type {
   BackgroundDraw2D,
   BackgroundRenderer2D,

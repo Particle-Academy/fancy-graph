@@ -1,6 +1,6 @@
 {
   "profile": "hardware",
-  "measuredAt": "2026-11-26T06:20:37.520Z",
+  "measuredAt": "2026-11-26T07:13:32.075Z",
   "browser": "chromium 159.0.8154.6 (headless)",
   "webgl": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 (0x00002488) Direct3D11 vs_5_0 ps_5_0, D3D11)",
   "viewport": "1280x800 @1x",
@@ -12,16 +12,16 @@
       "links": 900,
       "frameCostMs": {
         "frames": 240,
-        "mean": 0.22,
+        "mean": 0.17,
         "p50": 0.2,
-        "p95": 0.4,
-        "max": 1.1
+        "p95": 0.3,
+        "max": 0.7
       },
       "rafIntervalMs": {
         "frames": 240,
         "mean": 16.67,
         "p50": 16.7,
-        "p95": 16.7,
+        "p95": 16.8,
         "max": 16.8
       }
     },
@@ -32,10 +32,10 @@
       "links": 6000,
       "frameCostMs": {
         "frames": 240,
-        "mean": 0.94,
+        "mean": 0.99,
         "p50": 0.9,
         "p95": 1.4,
-        "max": 2.3
+        "max": 2.6
       },
       "rafIntervalMs": {
         "frames": 240,
@@ -52,8 +52,8 @@
       "links": 900,
       "frameCostMs": {
         "frames": 240,
-        "mean": 0.25,
-        "p50": 0.2,
+        "mean": 0.26,
+        "p50": 0.3,
         "p95": 0.4,
         "max": 0.6
       },
@@ -61,7 +61,7 @@
         "frames": 240,
         "mean": 16.67,
         "p50": 16.7,
-        "p95": 16.8,
+        "p95": 16.7,
         "max": 16.8
       }
     },
@@ -72,16 +72,16 @@
       "links": 6000,
       "frameCostMs": {
         "frames": 240,
-        "mean": 1.16,
-        "p50": 1,
-        "p95": 1.7,
+        "mean": 1.46,
+        "p50": 1.5,
+        "p95": 1.8,
         "max": 2.1
       },
       "rafIntervalMs": {
         "frames": 241,
         "mean": 16.67,
         "p50": 16.7,
-        "p95": 16.7,
+        "p95": 16.8,
         "max": 16.8
       }
     }
@@ -115,6 +115,57 @@
         ],
         "yawMoved": 0.3,
         "focusedAttr": "agent-194"
+      }
+    },
+    "gallery": {
+      "2d-network": {
+        "nodes": 160,
+        "selected": "agent-0",
+        "preset": "network",
+        "theme": "light",
+        "labels": 10
+      },
+      "2d-radial": {
+        "nodes": 160,
+        "selected": "agent-0",
+        "preset": "radial",
+        "theme": "light",
+        "labels": 4
+      },
+      "2d-hierarchy": {
+        "nodes": 52,
+        "selected": "r0-1",
+        "preset": "hierarchy",
+        "theme": "light",
+        "labels": 4
+      },
+      "2d-clustered": {
+        "nodes": 160,
+        "selected": "agent-0",
+        "preset": "clustered",
+        "theme": "light",
+        "labels": 9
+      },
+      "3d-network": {
+        "nodes": 160,
+        "selected": "agent-0",
+        "preset": "network",
+        "theme": "dark",
+        "labels": 9
+      },
+      "3d-cosmos": {
+        "nodes": 650,
+        "selected": "agent-0",
+        "preset": "cosmos",
+        "theme": "dark",
+        "labels": 16
+      },
+      "3d-layered": {
+        "nodes": 160,
+        "selected": "agent-0",
+        "preset": "layered",
+        "theme": "dark",
+        "labels": 12
       }
     }
   },

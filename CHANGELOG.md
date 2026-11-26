@@ -38,6 +38,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     input, a focus ring distinct from selection, `neighborhood` mode, and
     labels always shown for the focus and its neighbours.
   - A measured benchmark at 650 nodes and at 4,000 nodes / 6,000 links (README).
+  - Ready-made view presets (owner, 2026-11-26), each a layout plus renderers
+    plus defaults, usable as-is or overridden piece by piece through the usual
+    props: 2D `network` (the default), `radial` (ego view), `hierarchy` and
+    `clustered`; 3D `network` (the default), `cosmos` and `layered` (by type or
+    by a date or number field). `preset` prop on every view, `GRAPH_PRESETS_2D`
+    / `GRAPH_PRESETS_3D`, and a factory per preset. The cosmos now ships as a
+    preset and stays the reference example.
+  - Theming: `theme` (`light`, `dark`, `auto`, or overrides with per-type
+    colours), with every colour also read from a CSS variable so kit tokens can
+    drive it (`--fancy-graph-background`, `--fancy-graph-type-<type>`, ...).
+  - `positionOf(id)` on every view handle; `forceLayout({ gravity })`; layer
+    materials take `side: "double"`.
 
 ### Changed
 

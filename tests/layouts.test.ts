@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createLayoutRunner,
   forceLayout,
+  groupClusters,
   hierarchyLayout,
   normalizeGraph,
   radialLayout,
@@ -255,5 +256,23 @@ describe("hierarchyLayout", () => {
   it("lays out left to right when asked", () => {
     const p = createLayoutRunner(hierarchyLayout({ direction: "right", layerGap: 80 }), tree(), env()).positions;
     expect(p[1 * 3]).toBe(80);
+  });
+});
+
+describe("force gravity and hull radius", () => {
+  it("gravity keeps unlinked nodes from drifting far from the rest", () => {
+    const g = normalizeGraph({ nodes: Array.from({ length: 30 }, (_, i) => ({ id: `n${i}` })), links: Array.from({ length: 20 }, (_, i) => ({ source: `n${i}`, target: `n${i + 1}` })) });
+    const far = (p: Float32Array) => Math.max(...Array.from({ length: 30 }, (_, i) => Math.hypot(p[i * 3], p[i * 3 + 1])));
+    const loose = far(createLayoutRunner(forceLayout({ seed: 2 }), g, env({ reducedMotion: true })).positions);
+    const held = far(createLayoutRunner(forceLayout({ seed: 2, gravity: 0.08 }), g, env({ reducedMotion: true })).positions);
+    expect(held).toBeLessThan(loose * 0.8);
+  });
+
+  it("a group's hull is not inflated by one far outlier", () => {
+    const g = normalizeGraph({ nodes: Array.from({ length: 10 }, (_, i) => ({ id: `n${i}`, group: "g" })), links: [] });
+    const p = new Float32Array(30);
+    for (let i = 0; i < 9; i++) p.set([Math.cos(i) * 10, Math.sin(i) * 10, 0], i * 3);
+    p.set([1000, 0, 0], 27);
+    expect(groupClusters(g, p)[0].radius).toBeLessThan(100);
   });
 });

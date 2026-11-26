@@ -36,7 +36,7 @@ function frame(over: Partial<LayerFrame3D> = {}): LayerFrame3D {
   };
 }
 
-const ctx = (group = new THREE.Group()) => ({ group, renderOrder: 3, graph, meta: null, clusters: [] as GraphCluster[], camera: new THREE.PerspectiveCamera() });
+const ctx = (group = new THREE.Group()) => ({ group, renderOrder: 3, graph, meta: null, clusters: [] as GraphCluster[], camera: new THREE.PerspectiveCamera(), colors: new Float32Array(graph.nodes.length * 3) });
 
 const VS = "in vec3 position; in vec3 iPos; in float iSize; void main(){ gl_Position = vec4(iPos + position * iSize, 1.); }";
 const FS = "precision highp float; out vec4 o; void main(){ o = vec4(1.); }";

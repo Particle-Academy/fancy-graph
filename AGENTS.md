@@ -60,6 +60,34 @@ const data = { nodes: nodes.map((n) => ({ id: n.id, label: n.label, group: n.typ
 `predicate` becomes `kind` (shown by `neighbors()` and the agent bridge);
 `summary` rides in `data`, which the kit never reads.
 
+## Views: presets
+
+Start from a preset, then override pieces. 2D (`<GraphView preset=...>`):
+`network` (default, force-directed), `radial` (ego view on the focus, else the
+selection), `hierarchy` (directed tree, roots on top), `clustered` (grouped by
+`group`, labelled hulls). 3D (`<GraphView3D preset=...>`): `network` (default,
+spheres and lines), `cosmos` (galaxies per type), `layered` (a plane per type,
+or `layeredPreset({ layerBy: { field: "createdAt", buckets: 6 } })` for time).
+Screenshots: [README, Views](./README.md#views-ready-made-presets).
+
+- Any `layout`, `renderers` slot, `clusters`, `clusterLabel`, `nodeSize` or
+  `linkVisibility` you pass overrides that piece and keeps the rest.
+- Factories configure them: `clusteredPreset({ groupPull: 0.5 })`,
+  `radialPreset({ ringGap: 120 })`, `cosmosPreset()`, `layeredPreset(...)`.
+- 3D preset renderers are factories (layers own GPU state); a custom 3D preset
+  must return fresh layers from `renderers()`.
+
+## Theme
+
+`theme="light" | "dark" | "auto"` (default auto: `.dark` / `[data-theme=dark]`
+ancestor, else the system), or `{ base, typeColors, palette, background, link,
+label, labelHalo, focus, selection }`. CSS variables override the base:
+`--fancy-graph-background`, `--fancy-graph-link`, `--fancy-graph-label`,
+`--fancy-graph-label-halo`, `--fancy-focus`, `--fancy-graph-type-<type>`. Node
+colour precedence: `nodeColor` prop, then `node.color`, then the theme's
+`typeColors`, then `--fancy-graph-type-<type>`, then the palette. The root
+carries `data-fancy-graph-preset` and `data-fancy-graph-theme`.
+
 ## API essentials
 
 - **Controlled state, all optional:** `selected` / `onSelectedChange`,

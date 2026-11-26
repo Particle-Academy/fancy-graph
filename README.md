@@ -56,6 +56,48 @@ import { GraphView3D } from "@particle-academy/fancy-graph/three";
 
 Or inside a `<Stage>` you already have, with `<GraphScene3D>`.
 
+## Views: ready-made presets
+
+Every view is a preset: a layout plus renderers plus defaults. Use one as it is,
+or override any piece of it with a prop (`layout`, any `renderers` slot,
+`clusters`, `nodeSize`, ...) and keep the rest. Every preset follows the theme
+and takes every interaction: selection, focus and `stepFocus`, the camera API,
+labels and neighbourhood mode.
+
+```tsx
+<GraphView data={data} preset="clustered" theme="dark" />
+<GraphView3D data={data} preset="cosmos" />
+<GraphView3D data={data} preset={layeredPreset({ layerBy: { field: "createdAt", buckets: 6 } })} />
+```
+
+| | |
+|---|---|
+| **`network`** (2D, the default): a force-directed network.<br>![2D network](docs/presets/2d-network.png) | **`radial`** (2D): an ego view centred on the focused node, else the selection, re-centred as it moves.<br>![2D radial](docs/presets/2d-radial.png) |
+| **`hierarchy`** (2D): a layered tree for directed links, roots on top.<br>![2D hierarchy](docs/presets/2d-hierarchy.png) | **`clustered`** (2D): a map grouped by node type, a labelled hull per type.<br>![2D clustered](docs/presets/2d-clustered.png) |
+| **`network`** (3D, the default): lit spheres and lines.<br>![3D network](docs/presets/3d-network.png) | **`layered`** (3D): a plane per node type, or per bucket of a date or number field.<br>![3D layered](docs/presets/3d-layered.png) |
+| **`cosmos`** (3D): galaxies per type, stars, orbiting planets, asteroids. The reference example of how far the plug points go.<br>![3D cosmos](docs/presets/3d-cosmos.png) | |
+
+Each built-in has a factory for its options: `networkPreset`, `radialPreset`,
+`hierarchyPreset`, `clusteredPreset` (2D) and `network3DPreset`,
+`cosmosPreset`, `layeredPreset` (3D). A preset is plain data, so your own is
+just another object of the same shape.
+
+### Theme
+
+`theme` is `"light"`, `"dark"`, `"auto"` (the default: a `.dark` or
+`[data-theme=dark]` ancestor, else the system) or overrides on a base, such as
+per-type colours:
+
+```tsx
+<GraphView data={data} theme={{ base: "dark", typeColors: { person: "#f472b6", place: "#34d399" } }} />
+```
+
+Every colour also reads a CSS variable, so your kit's tokens can drive it:
+`--fancy-graph-background`, `--fancy-graph-link`, `--fancy-graph-label`,
+`--fancy-graph-label-halo`, `--fancy-focus`, and `--fancy-graph-type-<type>` for
+each node type (`.app { --fancy-graph-type-person: var(--color-pink-400); }`).
+An explicit `nodeColor` or a node's own `color` still wins.
+
 ### Your own layout
 
 A layout is a function that fills positions (3 floats per node), or a stepper
@@ -79,9 +121,9 @@ Built in, all written for this package: `forceLayout()` (Barnes-Hut, 2D or 3D,
 2D: `renderers={{ node, link, cluster, background }}`, canvas callbacks with
 screen coordinates and each node's state. 3D: layers. `createInstancedLayer`
 takes your own GLSL 3 shaders and gives you instancing, additive or
-premultiplied blending, back-to-front order and fresh positions every frame;
-`examples/cosmos/` builds a full cosmos (galaxies, stars, planets with rings,
-asteroids, a sky, dust) with nothing else.
+premultiplied blending, back-to-front order and fresh positions every frame.
+The `cosmos` preset (galaxies, stars, planets with rings, asteroids, a sky,
+dust) is built with nothing else; `src/three/presets/` is the worked example.
 
 ### What the kit owns
 
@@ -106,13 +148,14 @@ GPU: NVIDIA RTX 3070 through ANGLE / Direct3D 11.
 
 | View | Nodes / links | Frame cost p50 / p95 / max (ms) | Frame interval p50 / p95 (ms) |
 |---|---|---|---|
-| 2D canvas | 650 / 900 | 0.2 / 0.4 / 1.1 | 16.7 / 16.7 |
-| 2D canvas | 4,000 / 6,000 | 0.9 / 1.4 / 2.3 | 16.7 / 16.8 |
-| 3D cosmos | 650 / 900 | 0.2 / 0.4 / 0.6 | 16.7 / 16.8 |
-| 3D cosmos | 4,000 / 6,000 | 1.0 / 1.7 / 2.1 | 16.7 / 16.7 |
+| 2D canvas | 650 / 900 | 0.2 / 0.3 / 0.7 | 16.7 / 16.8 |
+| 2D canvas | 4,000 / 6,000 | 0.9 / 1.4 / 2.6 | 16.7 / 16.8 |
+| 3D cosmos | 650 / 900 | 0.3 / 0.4 / 0.6 | 16.7 / 16.7 |
+| 3D cosmos | 4,000 / 6,000 | 1.5 / 1.8 / 2.1 | 16.7 / 16.8 |
 
-Run to run, these move by a few tenths of a millisecond: the run before this
-one measured 1.3 (2D) and 1.4 (3D) ms p50 at 4,000 nodes.
+Run to run, these move by a few tenths of a millisecond: two back-to-back runs
+of the previous build (before presets) on the same machine measured 0.9 and 1.4
+(2D), and 1.0 and 1.4 (3D), ms p50 at 4,000 nodes.
 
 No GPU (SwiftShader, a CPU rasteriser; a floor for weak hardware, 10-frame
 samples):

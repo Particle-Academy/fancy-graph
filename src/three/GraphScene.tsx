@@ -1,8 +1,10 @@
 import { Stage, useStage } from "@particle-academy/fancy-3d-three/react";
+import * as THREE from "@particle-academy/fancy-3d-three/three";
 import { useImperativeHandle, useLayoutEffect, useMemo, useRef, type Ref } from "react";
 import type { Camera3D } from "../camera";
-import { forceLayout } from "../layout/force";
 import type { GraphLayout } from "../layout/contract";
+import { applyThemeVars, resolveTheme, typeColor } from "../theme";
+import { resolvePreset3D, type GraphPreset3D, type GraphPreset3DId } from "./presets/presets3d";
 import type { GraphViewHandleBase } from "../react/GraphView";
 import { useGraphModel, type GraphViewBaseProps } from "../react/model";
 import { neighborLinks } from "../interaction";
@@ -26,8 +28,16 @@ export interface GraphScene3DHandle extends GraphViewHandleBase {
 
 export interface GraphScene3DProps extends GraphViewBaseProps {
   ref?: Ref<GraphScene3DHandle>;
-  /** A layout function or stepper; it is given 3 dimensions. Defaults to a 3D force layout. */
+  /**
+   * A ready-made 3D view: `"network"` (default), `"cosmos"`, `"layered"`, or a
+   * preset object (see `GRAPH_PRESETS_3D` and the preset factories). `layout`,
+   * any `renderers` slot, `nodeSize`, `clusterLabel`, `linkVisibility` and
+   * the home angles passed as well override that piece of the preset.
+   */
+  preset?: GraphPreset3DId | GraphPreset3D;
+  /** A layout function or stepper; it is given 3 dimensions. Overrides the preset's. */
   layout?: GraphLayout;
+  /** Layers per slot; a slot given here replaces the preset's, the rest stay. */
   renderers?: GraphRenderers3D;
   clusters?: ClusterSource3D;
   clusterLabel?: (cluster: GraphCluster) => string | null;
@@ -38,9 +48,11 @@ export interface GraphScene3DProps extends GraphViewBaseProps {
   /** Requested camera; when it changes the view flies there. */
   camera?: Camera3D;
   onCameraChange?: (camera: Camera3D) => void;
-  /** Direction of the home view, radians. Defaults 0.75 / 0.55. */
+  /** Direction of the home view, radians. Defaults to the preset's, else 0.75 / 0.55. */
   homeYaw?: number;
   homePitch?: number;
+  /** Paint the stage's clear colour from the theme. Default: when `theme` is given (always, in `<GraphView3D>`). */
+  applyThemeBackground?: boolean;
 }
 
 export interface GraphSceneOnStageProps extends GraphScene3DProps {
@@ -58,26 +70,51 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
   const model = useGraphModel(props);
   const { graph, limits } = model;
   const engineRef = useRef<StageEngine | null>(null);
-  const latest = useRef({ props, model });
-  latest.current = { props, model };
-  const defaultLayout = useMemo(() => forceLayout({ linkDistance: 24 }), []);
-  const layout = props.layout ?? defaultLayout;
+  const preset = useMemo(() => resolvePreset3D(props.preset), [props.preset]);
+  const latest = useRef({ props, model, preset });
+  latest.current = { props, model, preset };
+  const presetState = { graph, selected: model.selectedId, focused: model.focusedId };
+  const layoutKey = preset.layoutKey ? preset.layoutKey(presetState) : "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const presetLayout = useMemo(() => preset.layout(presetState), [preset, layoutKey, graph]);
+  const layout = props.layout ?? presetLayout;
+  // Layers own GPU state: a fresh set per preset, and slot-by-slot overrides from the props.
+  const presetLayers = useMemo(() => preset.renderers?.() ?? {}, [preset]);
+  const renderers = useMemo(() => ({ ...presetLayers, ...(props.renderers ?? {}) }), [presetLayers, props.renderers]);
+  const themeKey = JSON.stringify(props.theme ?? "auto");
 
   const options = (): Engine3DOptions => {
-    const { props: p, model: m } = latest.current;
+    const { props: p, model: m, preset: pr } = latest.current;
+    const themeEl = stage.canvas.closest("[data-fancy-graph]")?.parentElement ?? null;
+    const theme = resolveTheme(p.theme, themeEl);
+    applyThemeVars(stage.overlayRoot as HTMLElement, theme);
+    if (p.applyThemeBackground ?? p.theme !== undefined) {
+      (stage.renderer as { setClearColor?: (c: THREE.Color, a?: number) => void }).setClearColor?.(new THREE.Color(theme.background), 1);
+    }
+    const root = stage.canvas.closest<HTMLElement>("[data-fancy-graph]");
+    if (root) {
+      root.dataset.fancyGraphTheme = theme.mode;
+      root.dataset.fancyGraphPreset = pr.id;
+    }
+    const nodeSize = p.nodeSize ?? pr.nodeSize;
     return {
-      renderers: p.renderers ?? {},
+      renderers: rendersRef.current,
       clusters: p.clusters,
-      clusterLabel: p.clusterLabel,
-      nodeColor: p.nodeColor ? (i, meta) => p.nodeColor!(m.graph.nodes[i], i, meta) : undefined,
-      nodeSize: p.nodeSize ? (i, meta) => p.nodeSize!(m.graph.nodes[i], i, meta) : undefined,
+      clusterLabel: p.clusterLabel ?? pr.clusterLabel,
+      nodeColor: (i, meta) => {
+        const node = m.graph.nodes[i];
+        return p.nodeColor ? p.nodeColor(node, i, meta) : (node.color ?? typeColor(theme, node.group, themeEl));
+      },
+      nodeSize: nodeSize ? (i, meta) => nodeSize(m.graph.nodes[i], i, meta) : undefined,
       labelOf: m.labelOf,
-      linkVisibility: p.linkVisibility ?? "all",
+      linkVisibility: p.linkVisibility ?? pr.linkVisibility ?? "all",
       paused: !!p.paused,
-      homeYaw: p.homeYaw ?? 0.75,
-      homePitch: p.homePitch ?? 0.55,
+      homeYaw: p.homeYaw ?? pr.homeYaw ?? 0.75,
+      homePitch: p.homePitch ?? pr.homePitch ?? 0.55,
     };
   };
+  const rendersRef = useRef(renderers);
+  rendersRef.current = renderers;
 
   useLayoutEffect(() => {
     const engine = new StageEngine(
@@ -122,10 +159,11 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
   useLayoutEffect(() => {
     engineRef.current?.setOptions(options());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.renderers, props.clusters, props.clusterLabel, props.nodeColor, props.nodeSize, model.labelOf, props.linkVisibility, props.paused, props.homeYaw, props.homePitch, stage]);
+  }, [preset, themeKey, props.clusters, props.clusterLabel, props.nodeColor, props.nodeSize, model.labelOf, props.linkVisibility, props.paused, props.homeYaw, props.homePitch, props.applyThemeBackground, stage]);
   useLayoutEffect(() => {
-    engineRef.current?.setGraph(graph, layout);
-  }, [graph, layout, stage]);
+    engineRef.current?.setScene(graph, layout, options());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph, layout, renderers, stage]);
   useLayoutEffect(() => {
     engineRef.current?.setInteraction(model.selectedIndex, model.hoveredIndex, model.matches, model.focusedIndex, !!props.neighborhood);
   }, [model.selectedIndex, model.hoveredIndex, model.matches, model.focusedIndex, props.neighborhood, stage]);
@@ -173,6 +211,7 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
       const index = (id: string) => m().graph.index.get(id) ?? -1;
       return {
         neighbors: (id) => (m().graph.index.has(id) ? neighborLinks(m().graph, index(id)) : []),
+        positionOf: (id) => e()?.positionOf(index(id)) ?? null,
         stepFocus(direction, opts) {
           const mm = m();
           const screen = e()?.getScreen() ?? new Float32Array(0);
@@ -258,7 +297,7 @@ export function GraphScene3D(props: GraphScene3DProps) {
 }
 
 export interface GraphView3DProps extends GraphScene3DProps {
-  /** Canvas clear colour. Default near-black. */
+  /** Canvas clear colour. Defaults to the theme's background. */
   clearColor?: string;
 }
 
@@ -268,12 +307,12 @@ export interface GraphView3DProps extends GraphScene3DProps {
  * `@particle-academy/fancy-3d-three` installed; the 2D `<GraphView>` needs
  * neither.
  */
-export function GraphView3D({ clearColor = "#02030a", className, style, ...props }: GraphView3DProps) {
+export function GraphView3D({ clearColor, className, style, ...props }: GraphView3DProps) {
   // The scene writes the live counts and selection onto this element; see GraphSceneOnStage.
   return (
     <div className={className} style={{ position: "relative", overflow: "hidden", ...style }} data-fancy-graph="" data-fancy-graph-renderer="3d">
-      <Stage bare cameraRadius={3000} cameraTarget={[0, 0, 0]} clearColor={clearColor} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-        <GraphScene3D {...props} />
+      <Stage bare cameraRadius={3000} cameraTarget={[0, 0, 0]} clearColor={clearColor ?? "#02030a"} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
+        <GraphScene3D applyThemeBackground={clearColor === undefined} {...props} />
       </Stage>
     </div>
   );

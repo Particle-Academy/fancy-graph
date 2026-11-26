@@ -22,3 +22,15 @@ export {
   type ShaderMaterialSpec,
 } from "./layers";
 export type { GraphLayer3D, GraphRenderers3D, LayerContext3D, LayerFrame3D, OrbitControlsLike, StageLike } from "./types";
+export {
+  GRAPH_PRESETS_3D,
+  cosmosPreset,
+  layeredPreset,
+  network3DPreset,
+  resolvePreset3D,
+  type GraphPreset3D,
+  type GraphPreset3DId,
+} from "./presets/presets3d";
+export { ASTEROID, PLANET, STAR, cosmosLayout, spiralPoint, type BodyKind, type CosmosBody, type CosmosGalaxy, type CosmosLayoutOptions, type CosmosMeta } from "./presets/cosmos-layout";
+export { cosmosDefaults, cosmosRenderers, type CosmosRenderOptions } from "./presets/cosmos-renderers";
+export { layeredLayout, layerPlanes, type LayerBy, type LayeredLayoutOptions } from "./presets/layered";

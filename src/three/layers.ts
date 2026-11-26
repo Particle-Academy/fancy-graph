@@ -45,6 +45,8 @@ export interface ShaderMaterialSpec {
   /** Default false: these layers sort themselves back to front instead. */
   depthTest?: boolean;
   depthWrite?: boolean;
+  /** `"double"` for geometry seen from both sides (a horizontal plane under an orbiting camera). Default `"front"`. */
+  side?: "front" | "double";
 }
 
 /** A GLSL 3 RawShaderMaterial with the kit uniforms merged in. */
@@ -58,6 +60,7 @@ export function createLayerMaterial(spec: ShaderMaterialSpec): THREE.RawShaderMa
     transparent: true,
     depthTest: spec.depthTest ?? false,
     depthWrite: spec.depthWrite ?? false,
+    side: spec.side === "double" ? THREE.DoubleSide : THREE.FrontSide,
   });
   applyBlending(m, spec.blending ?? "premultiplied");
   return m as THREE.RawShaderMaterial & { uniforms: Record<string, THREE.IUniform> & KitUniforms };

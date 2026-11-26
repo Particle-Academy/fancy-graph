@@ -71,6 +71,8 @@ export class CanvasEngine {
   private down: { x: number; y: number; dragging: boolean; cam: Camera2D } | null = null;
   private pinch: { dist: number; cam: Camera2D; mx: number; my: number } | null = null;
   private clusterCache: GraphCluster[] = [];
+  /** Clusters are recomputed only when positions moved or their source changed, never on a settled frame. */
+  private clustersStale = true;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -94,6 +96,7 @@ export class CanvasEngine {
   // ---------------------------------------------------------------- state in
 
   setGraph(graph: IndexedGraph, layout: GraphLayout) {
+    this.clustersStale = true;
     this.runner?.dispose();
     this.graph = graph;
     const n = graph.nodes.length;
@@ -108,6 +111,7 @@ export class CanvasEngine {
   }
 
   setOptions(opts: Engine2DOptions) {
+    if (opts.clusters !== this.opts.clusters) this.clustersStale = true;
     this.opts = opts;
     this.runner?.setPaused(opts.paused);
     this.refreshStyle();
@@ -236,6 +240,13 @@ export class CanvasEngine {
     return this.clusterCache;
   }
 
+  /** A node's world position in the current layout. */
+  positionOf(index: number): [number, number, number] | null {
+    const p = this.runner?.positions;
+    if (!p || index < 0 || index * 3 >= p.length) return null;
+    return [p[index * 3], p[index * 3 + 1], p[index * 3 + 2]];
+  }
+
   // ------------------------------------------------------------------ frame
 
   invalidate() {
@@ -269,7 +280,7 @@ export class CanvasEngine {
     if (!g || !r) return { ms: 0 };
     const dt = Math.min(MAX_DT, Math.max(MIN_DT, dtIn));
     const wasSettled = r.settled;
-    r.tick(dt);
+    if (r.tick(dt)) this.clustersStale = true;
     const p = r.positions;
     const n = g.nodes.length;
 
@@ -312,13 +323,21 @@ export class CanvasEngine {
     const focus = { selected: this.selected, hovered: this.hovered, matches: this.matches, focused: this.focused, neighborhood: this.neighborhood };
     computeNodeStates(g, focus, this.states);
     computeLinkStates(g, focus, this.linkStates);
-    this.clusterCache = this.resolveClusters(g, p);
+    if (this.clustersStale) {
+      this.clusterCache = this.resolveClusters(g, p);
+      this.clustersStale = false;
+    }
 
     const ctx = this.ctx;
     if (ctx) this.paint(ctx, g);
     this.paintLabels(g);
     const t1 = typeof performance !== "undefined" ? performance.now() : Date.now();
     return { ms: t1 - t0 };
+  }
+
+  /** A cluster's own colour, else its members' (so it follows the theme), else a palette guess. */
+  private clusterColor(c: GraphCluster): string {
+    return c.color ?? (c.members[0] !== undefined ? this.colors[c.members[0]] : undefined) ?? colorFor(c.id);
   }
 
   private fitAll(p: Float32Array): Camera2D {
@@ -358,13 +377,14 @@ export class CanvasEngine {
       const radius = c.radius * cam.zoom;
       if (R.cluster) R.cluster(ctx, { cluster: c, x, y, radius, zoom: cam.zoom, meta });
       else {
+        const colour = this.clusterColor(c);
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.globalAlpha = 0.07;
-        ctx.fillStyle = c.color ?? colorFor(c.id);
+        ctx.fillStyle = colour;
         ctx.fill();
         ctx.globalAlpha = 0.25;
-        ctx.strokeStyle = c.color ?? colorFor(c.id);
+        ctx.strokeStyle = colour;
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.globalAlpha = 1;
@@ -473,7 +493,9 @@ export class CanvasEngine {
       if (!text) continue;
       const radius = c.radius * cam.zoom;
       if (radius < 12 || radius > Math.min(W, H) * 0.6) continue;
-      cl.push({ id: c.id, text: truncateLabel(text, max), x: (c.center[0] - cam.x) * cam.zoom + W / 2, y: (c.center[1] - cam.y) * cam.zoom + H / 2 - radius - 4, color: c.color ?? colorFor(c.id) });
+      // Kept on screen: a hull reaching past the top edge still shows its name.
+      const y = Math.max(18, (c.center[1] - cam.y) * cam.zoom + H / 2 - radius - 4);
+      cl.push({ id: c.id, text: truncateLabel(text, max), x: (c.center[0] - cam.x) * cam.zoom + W / 2, y, color: this.clusterColor(c) });
     }
     this.labels.renderClusters(cl);
   }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { normalizeGraph } from "../graph";
 import { searchNodes } from "../interaction";
 import { resolveLimits, type GraphLimits } from "../limits";
+import type { GraphThemeInput } from "../theme";
 import type { GraphActivity, GraphActivitySource, GraphData, GraphNode, IndexedGraph } from "../types";
 
 export interface ChangeMeta {
@@ -19,6 +20,13 @@ export interface GraphViewBaseProps {
   /** Controlled hover. */
   hovered?: string | null;
   onHoveredChange?: (id: string | null, meta: ChangeMeta) => void;
+  /**
+   * `"light"`, `"dark"`, `"auto"` (default: a `.dark` / `[data-theme=dark]`
+   * ancestor, else the system), or overrides such as per-type colours:
+   * `{ base: "dark", typeColors: { person: "#f472b6" } }`. CSS variables
+   * (`--fancy-graph-background`, `--fancy-graph-type-<type>`, ...) override the base.
+   */
+  theme?: GraphThemeInput;
   /**
    * Controlled keyboard / gamepad focus: a cursor distinct from the selection,
    * drawn with its own ring, labelled with its neighbours, and kept in view.

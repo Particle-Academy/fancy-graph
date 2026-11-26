@@ -91,6 +91,28 @@ const handles3d = await page.evaluate(() => {
 await bench("3D cosmos, 4,000 nodes / 6,000 links", "mount3d", { nodes: 4000, links: 6000 });
 await shot({ path: join(shots, "3d-cosmos-4000.png") });
 
+// Preset gallery: every built-in preset as a consumer uses it, one screenshot each into
+// docs/presets/ (committed, shown in the README and AGENTS.md). Hardware profile only.
+phase = "preset gallery";
+const gallery = {};
+if (shoot) {
+  const docs = join(here, "..", "..", "docs", "presets");
+  mkdirSync(docs, { recursive: true });
+  const ids = await page.evaluate(() => window.harness.presets());
+  for (const kind of ["2d", "3d"])
+    for (const id of ids[kind]) {
+      const theme = kind === "2d" ? "light" : "dark";
+      const selected = id === "hierarchy" ? "r0-1" : "agent-0";
+      const state = await page.evaluate(([k, i, t, s]) => window.harness.mountPreset(k, i, t, s), [kind, id, theme, selected]);
+      const attrs = await page.evaluate(() => {
+        const r = document.querySelector("[data-fancy-graph]");
+        return { preset: r?.getAttribute("data-fancy-graph-preset"), theme: r?.getAttribute("data-fancy-graph-theme"), labels: [...document.querySelectorAll("[data-fancy-graph-label]")].filter((e) => e.style.display !== "none").length };
+      });
+      await page.screenshot({ path: join(docs, `${kind}-${id}.png`) });
+      gallery[`${kind}-${id}`] = { nodes: state.nodeCount, selected: state.selected, ...attrs };
+    }
+}
+
 // Gamepad path: focus stepping, neighbourhood mode, analog camera, on both renderers.
 const gamepad = {};
 phase = "2D gamepad";
@@ -138,7 +160,7 @@ const clicked = await page.evaluate(() => document.querySelector("[data-fancy-gr
 
 await browser.close();
 
-results.checks = { labels2dVisible: labels2d, selected3d: picked, handles3d, clicked2d: clicked, gamepad };
+results.checks = { labels2dVisible: labels2d, selected3d: picked, handles3d, clicked2d: clicked, gamepad, gallery };
 results.console = consoleLog;
 mkdirSync(join(here, "..", "results"), { recursive: true });
 writeFileSync(join(here, "..", "results", `frame-times-${profile}.json`), JSON.stringify(results, null, 2) + "\n");

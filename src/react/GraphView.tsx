@@ -1,6 +1,5 @@
 import { useImperativeHandle, useLayoutEffect, useMemo, useRef, type CSSProperties, type Ref } from "react";
 import type { Camera2D } from "../camera";
-import { forceLayout } from "../layout/force";
 import type { GraphLayout } from "../layout/contract";
 import { CanvasEngine, type ClusterSource, type Engine2DOptions } from "../render2d/engine";
 import type { GraphRenderers2D } from "../render2d/types";
@@ -8,6 +7,8 @@ import { neighborLinks, type NeighborLink, type StepDirection } from "../interac
 import type { GraphActivitySource, GraphCluster, GraphNode } from "../types";
 import { effectiveFocus, freshCycle, stepFocusIndex, type PendingFocus } from "./navigation";
 import { useGraphModel, type GraphViewBaseProps } from "./model";
+import { resolvePreset2D, type GraphPreset2D, type GraphPreset2DId } from "../presets/presets2d";
+import { applyThemeVars, resolveTheme, typeColor } from "../theme";
 
 export interface GraphViewHandleBase {
   /** Select a node (or null), through the same controlled path a click takes. */
@@ -38,6 +39,8 @@ export interface GraphViewHandleBase {
   pan(dx: number, dy: number): void;
   /** Multiplies the zoom (greater than 1 is closer). */
   zoom(factor: number): void;
+  /** A node's position in the current layout (world units), or null. */
+  positionOf(id: string): [number, number, number] | null;
 }
 
 export interface GraphViewState {
@@ -61,7 +64,14 @@ export interface GraphViewHandle extends GraphViewHandleBase {
 
 export interface GraphViewProps extends GraphViewBaseProps {
   ref?: Ref<GraphViewHandle>;
-  /** A layout function or stepper. Defaults to a force layout. */
+  /**
+   * A ready-made view: `"network"` (default), `"radial"`, `"hierarchy"`,
+   * `"clustered"`, or a preset object (see `GRAPH_PRESETS_2D` and the preset
+   * factories). Any of `layout`, `renderers`, `clusters`, `clusterLabel` and
+   * `linkVisibility` passed as well overrides that piece of the preset.
+   */
+  preset?: GraphPreset2DId | GraphPreset2D;
+  /** A layout function or stepper. Overrides the preset's. */
   layout?: GraphLayout;
   renderers?: GraphRenderers2D;
   /** `"group"`, a fixed list, or a function of the live positions. Defaults to the layout's own clusters, if any. */
@@ -73,9 +83,9 @@ export interface GraphViewProps extends GraphViewBaseProps {
   /** Requested camera. When it changes the view flies there; `onCameraChange` reports where it settled. */
   camera?: Camera2D;
   onCameraChange?: (camera: Camera2D) => void;
-  /** Canvas fill. Defaults to transparent (the container's background shows). */
+  /** Canvas fill. Defaults to the theme's background; `"transparent"` lets the container show. */
   background?: string;
-  /** Link stroke colour. Defaults to `--fancy-graph-link`, else slate. */
+  /** Link stroke colour. Defaults to the theme's. */
   linkColor?: string;
   /** Fixed size in CSS px. Omit to fill the container (it needs a height). */
   width?: number;
@@ -97,25 +107,40 @@ export function GraphView(props: GraphViewProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const labelsRef = useRef<HTMLDivElement | null>(null);
   const engineRef = useRef<CanvasEngine | null>(null);
-  const latest = useRef({ props, model });
-  latest.current = { props, model };
+  const preset = useMemo(() => resolvePreset2D(props.preset), [props.preset]);
+  const latest = useRef({ props, model, preset });
+  latest.current = { props, model, preset };
 
-  const defaultLayout = useMemo(() => forceLayout(), []);
-  const layout = props.layout ?? defaultLayout;
+  // The preset's layout, rebuilt only when its key changes (the radial view's centre).
+  const presetState = { graph, selected: model.selectedId, focused: model.focusedId };
+  const layoutKey = preset.layoutKey ? preset.layoutKey(presetState) : "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const presetLayout = useMemo(() => preset.layout(presetState), [preset, layoutKey, graph]);
+  const layout = props.layout ?? presetLayout;
 
   const options = (): Engine2DOptions => {
-    const { props: p, model: m } = latest.current;
+    const { props: p, model: m, preset: pr } = latest.current;
+    // Resolved against the container, not the root, so the variables the root sets for its labels never feed back.
+    const themeEl = rootRef.current?.parentElement ?? null;
+    const theme = resolveTheme(p.theme, themeEl);
+    if (rootRef.current) {
+      applyThemeVars(rootRef.current, theme);
+      rootRef.current.dataset.fancyGraphTheme = theme.mode;
+    }
     return {
-      renderers: p.renderers ?? {},
-      clusters: p.clusters,
-      clusterLabel: p.clusterLabel,
-      nodeColor: p.nodeColor ? (i) => p.nodeColor!(m.graph.nodes[i], i) : undefined,
+      renderers: { ...(pr.renderers ?? {}), ...(p.renderers ?? {}) },
+      clusters: p.clusters ?? pr.clusters,
+      clusterLabel: p.clusterLabel ?? pr.clusterLabel,
+      nodeColor: (i) => {
+        const node = m.graph.nodes[i];
+        return p.nodeColor ? p.nodeColor(node, i) : (node.color ?? typeColor(theme, node.group, themeEl));
+      },
       nodeSize: p.nodeSize ? (i) => p.nodeSize!(m.graph.nodes[i], i) : undefined,
       labelOf: m.labelOf,
-      linkVisibility: p.linkVisibility ?? "all",
-      background: p.background,
-      linkColor: p.linkColor ?? readVar(rootRef.current, "--fancy-graph-link", "#94a3b8"),
-      focusColor: readVar(rootRef.current, "--fancy-focus", "#3b82f6"),
+      linkVisibility: p.linkVisibility ?? pr.linkVisibility ?? "all",
+      background: p.background ?? theme.background,
+      linkColor: p.linkColor ?? theme.link,
+      focusColor: theme.focus,
       paused: !!p.paused,
     };
   };
@@ -165,10 +190,11 @@ export function GraphView(props: GraphViewProps) {
   useLayoutEffect(() => {
     engineRef.current?.setGraph(graph, layout);
   }, [graph, layout]);
+  const themeKey = JSON.stringify(props.theme ?? "auto");
   useLayoutEffect(() => {
     engineRef.current?.setOptions(options());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.renderers, props.clusters, props.clusterLabel, props.nodeColor, props.nodeSize, model.labelOf, props.linkVisibility, props.background, props.linkColor, props.paused]);
+  }, [preset, themeKey, props.renderers, props.clusters, props.clusterLabel, props.nodeColor, props.nodeSize, model.labelOf, props.linkVisibility, props.background, props.linkColor, props.paused]);
   useLayoutEffect(() => {
     engineRef.current?.setInteraction(model.selectedIndex, model.hoveredIndex, model.matches, model.focusedIndex, !!props.neighborhood);
   }, [model.selectedIndex, model.hoveredIndex, model.matches, model.focusedIndex, props.neighborhood]);
@@ -218,6 +244,7 @@ export function GraphView(props: GraphViewProps) {
       const index = (id: string) => m().graph.index.get(id) ?? -1;
       return {
         neighbors: (id) => (m().graph.index.has(id) ? neighborLinks(m().graph, index(id)) : []),
+        positionOf: (id) => e()?.positionOf(index(id)) ?? null,
         stepFocus(direction, opts) {
           const mm = m();
           const screen = e()?.getScreen() ?? new Float32Array(0);
@@ -298,6 +325,7 @@ export function GraphView(props: GraphViewProps) {
       style={{ position: "relative", overflow: "hidden", touchAction: "none", width: props.width, height: props.height, ...props.style }}
       data-fancy-graph=""
       data-fancy-graph-renderer="2d"
+      data-fancy-graph-preset={preset.id}
       data-fancy-graph-node-count={graph.nodes.length}
       data-fancy-graph-link-count={graph.links.length}
       data-fancy-graph-selected={model.selectedId ?? ""}
@@ -314,9 +342,4 @@ export function GraphView(props: GraphViewProps) {
   );
 }
 
-function readVar(el: HTMLElement | null, name: string, fallback: string): string {
-  if (!el || typeof getComputedStyle !== "function") return fallback;
-  const v = getComputedStyle(el).getPropertyValue(name).trim();
-  return v || fallback;
-}
 

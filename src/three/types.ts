@@ -35,6 +35,8 @@ export interface LayerContext3D {
   meta: unknown;
   clusters: GraphCluster[];
   camera: THREE.PerspectiveCamera;
+  /** 3 floats (0..1 rgb) per node, as the theme and nodeColor resolved them. */
+  colors: Float32Array;
 }
 
 /** What a layer gets every frame. Positions are live: animated layouts move them every frame. */

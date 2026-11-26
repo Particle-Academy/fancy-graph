@@ -28,6 +28,8 @@ export interface ForceLayoutOptions {
   groupPull?: number;
   /** The group key per node. Defaults to `node.group`. */
   groupOf?: (index: number, graph: IndexedGraph) => string | undefined;
+  /** A weak pull toward the origin, so unlinked nodes and small islands do not drift off. 0 (default) is off; 0.03 to 0.1 is typical. */
+  gravity?: number;
 }
 
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
@@ -49,6 +51,7 @@ export function forceLayout(options: ForceLayoutOptions = {}): GraphLayoutSteppe
     ticksPerFrame: Math.max(1, Math.floor(options.ticksPerFrame ?? 1)),
     seed: options.seed ?? 1,
     groupPull: Math.max(0, options.groupPull ?? 0),
+    gravity: Math.max(0, options.gravity ?? 0),
   };
   const alphaMin = 0.001;
   const alphaDecay = 1 - Math.pow(alphaMin, 1 / o.iterations);
@@ -166,6 +169,16 @@ export function forceLayout(options: ForceLayoutOptions = {}): GraphLayoutSteppe
         v[i * 3] += (groupSum[k * 4] / c - p[i * 3]) * s;
         v[i * 3 + 1] += (groupSum[k * 4 + 1] / c - p[i * 3 + 1]) * s;
         if (dims === 3) v[i * 3 + 2] += (groupSum[k * 4 + 2] / c - p[i * 3 + 2]) * s;
+      }
+    }
+
+    // Gravity: toward the origin.
+    if (o.gravity > 0) {
+      const s = o.gravity * alpha;
+      for (let i = 0; i < n; i++) {
+        v[i * 3] -= p[i * 3] * s;
+        v[i * 3 + 1] -= p[i * 3 + 1] * s;
+        if (dims === 3) v[i * 3 + 2] -= p[i * 3 + 2] * s;
       }
     }
 

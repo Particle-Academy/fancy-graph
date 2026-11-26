@@ -246,3 +246,15 @@ describe("<GraphView> (2D)", () => {
     expect(ref.current!.getState()).toMatchObject({ selected: "a", matches: ["c"], nodeCount: 4, linkCount: 2 });
   });
 });
+
+describe("<GraphView> per-frame cost", () => {
+  it("recomputes clusters only when positions move, not on every frame of a settled view", () => {
+    const clusters = vi.fn(() => []);
+    const ref = mount({ clusters });
+    const before = clusters.mock.calls.length;
+    act(() => {
+      for (let i = 0; i < 5; i++) ref.current!.renderFrame();
+    });
+    expect(clusters.mock.calls.length - before).toBe(0);
+  });
+});

@@ -290,7 +290,7 @@ describe("gamepad control, 3D", () => {
     const layer = nodeLayer3D();
     const group = new THREE.Group();
     const g = { nodes: data.nodes, links: [], index: new Map(), degree: new Float64Array(5), neighbors: [], incident: [], dropped: { nodes: 0, links: 0, invalidLinks: 0, duplicateNodes: 0 } };
-    layer.mount({ group, renderOrder: 3, graph: g, meta: null, clusters: [], camera: s.camera });
+    layer.mount({ group, renderOrder: 3, graph: g, meta: null, clusters: [], camera: s.camera, colors: new Float32Array(15) });
     layer.update({
       graph: g, positions: new Float32Array(15), order: new Uint32Array([0, 1, 2, 3, 4]), states: new Uint8Array([0, 0, 1, 0, 0]), linkStates: new Uint8Array(0),
       sizes: new Float32Array(5).fill(1), colors: new Float32Array(15), clusters: [], time: 0, dt: 0, width: 800, height: 800, pixelRatio: 1,

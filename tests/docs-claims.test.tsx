@@ -25,3 +25,24 @@ describe("AGENTS.md claims", () => {
     expect(html).toMatch(/<canvas[^>]*data-fancy-graph-canvas=""/);
   });
 });
+
+declare global {
+  interface ImportMeta {
+    glob(pattern: string, options?: { query?: "?raw"; import?: "default"; eager?: boolean }): Record<string, unknown>;
+  }
+}
+
+describe("preset docs", () => {
+  const shots = Object.keys(import.meta.glob("../docs/presets/*.png"));
+  const readme = String(Object.values(import.meta.glob("../README.md", { query: "?raw", import: "default", eager: true }))[0]);
+
+  it("every built-in preset has a committed screenshot, named and shown in the README", async () => {
+    const { GRAPH_PRESETS_2D } = await import("../src/index");
+    const { GRAPH_PRESETS_3D } = await import("../src/three/index");
+    const expected = [...Object.keys(GRAPH_PRESETS_2D).map((id) => `2d-${id}`), ...Object.keys(GRAPH_PRESETS_3D).map((id) => `3d-${id}`)];
+    for (const name of expected) {
+      expect(shots, name).toContain(`../docs/presets/${name}.png`);
+      expect(readme, name).toContain(`docs/presets/${name}.png`);
+    }
+  });
+});
