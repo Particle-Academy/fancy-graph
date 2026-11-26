@@ -162,10 +162,10 @@ samples):
 
 | View | Nodes / links | Frame cost p50 / p95 (ms) | Frame interval p50 / p95 (ms) |
 |---|---|---|---|
-| 2D canvas | 650 / 900 | 0.5 / 0.7 | 16.7 / 16.8 |
-| 2D canvas | 4,000 / 6,000 | 1.8 / 3.0 | 16.7 / 16.7 |
-| 3D cosmos | 650 / 900 | 0.5 / 0.9 | 33.3 / 83.3 |
-| 3D cosmos | 4,000 / 6,000 | 2.0 / 2.3 | 100.1 / 200.1 |
+| 2D canvas | 650 / 900 | 0.4 / 0.6 | 16.7 / 16.7 |
+| 2D canvas | 4,000 / 6,000 | 0.9 / 1.4 | 16.7 / 16.8 |
+| 3D cosmos | 650 / 900 | 0.5 / 0.7 | 33.3 / 33.4 |
+| 3D cosmos | 4,000 / 6,000 | 2.1 / 2.8 | 83.4 / 149.9 |
 
 Without a GPU the 3D cosmos's frame cost stays low while its frame interval
 grows, so the time goes to rasterising (its glows, galaxy discs and dust are
