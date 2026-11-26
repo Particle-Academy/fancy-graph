@@ -7,7 +7,7 @@
  */
 import { act, createRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import * as THREE from "three";
+import * as THREE from "@particle-academy/fancy-3d-three/three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLayoutRunner, normalizeGraph, resolveLimits } from "../src/core";
 import { GraphSceneOnStage, type GraphScene3DHandle, type StageLike } from "../src/three/index";

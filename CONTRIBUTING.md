@@ -37,8 +37,12 @@ by hand-typing a figure you did not measure.
 - `src/index.ts` adds React and the 2D renderer (`react/`, `render2d/`). It
   re-exports the core module by module, not `export *`, to avoid an empty
   shared chunk; `tests/entry-isolation.test.ts` holds the two lists equal.
-- `src/three/` is the only code that may import `three` or fancy-3d-three.
-  `tests/entry-isolation.test.ts` walks the import graph from every other entry.
+- `src/three/` is the only code that may import fancy-3d-three, and nothing in
+  the repo imports `three` directly: three.js comes only through
+  `@particle-academy/fancy-3d-three/three`, and `package.json` has no `three`
+  dependency of any kind (owner, 2026-11-26). `tests/entry-isolation.test.ts`
+  walks the import graphs and scans every file to hold both. `@types/three`
+  stays a devDependency because the re-export's declarations need it.
 - `examples/cosmos/` is the first acceptance case (beachhead's Cosmos view) built
   only through the public plug points. It is consumer code and does not ship.
 
@@ -47,9 +51,9 @@ by hand-typing a figure you did not measure.
 - No runtime dependencies, and no third-party code without owner approval.
 - Every limit is in `GraphLimits` with a default in `DEFAULT_LIMITS`.
 - Labels and any text from data go into the DOM through `textContent` only.
-- The 3D renderer must keep working on fancy-3d-three 0.2.1, which has no
-  `controls` on its Stage context: `three/engine.ts` (`Orbit`) falls back to
-  capturing the target from `camera.lookAt`. Tests run both paths.
+- The 3D renderer uses the Stage's `controls` handle. It also still works with
+  a Stage-like context that has none (`three/engine.ts`, `Orbit`, captures the
+  target from `camera.lookAt`), and tests run both paths.
 - Focus and selection stay visually distinct: `hasHighlightRing` decides the
   solid ring, the focus has its own dashed ring.
 

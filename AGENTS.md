@@ -14,9 +14,12 @@ npm install @particle-academy/fancy-graph
 npm install @particle-academy/fancy-graph @particle-academy/fancy-3d-three @particle-academy/fancy-3d three
 ```
 
-- **Peers:** `react ^19`, `react-dom ^19`. `three >=0.160` and
-  `@particle-academy/fancy-3d-three` are OPTIONAL peers, needed only for the
-  `./three` entry. **Node:** `>=22`. No runtime dependencies.
+- **Peers:** `react ^19`, `react-dom ^19`, and `@particle-academy/fancy-3d-three
+  >=0.3.0` as an OPTIONAL peer, needed only for the `./three` entry. fancy-graph
+  never declares `three`: its 3D code imports three.js only through
+  `@particle-academy/fancy-3d-three/three`, so it always shares the Stage's copy.
+  `three` is installed because fancy-3d-three needs it. **Node:** `>=22`. No
+  runtime dependencies.
 - Pre-1.0: breaking changes land in MINOR releases. Read the changelog entry.
 
 ## Find it on the Fancy MCP server
@@ -32,7 +35,7 @@ key; MCP id `fancy-ui`). Search it for "graph" (`search-components`), then use
 | `@particle-academy/fancy-graph` | `<GraphView>` (2D canvas) and the whole headless core |
 | `@particle-academy/fancy-graph/core` | Headless only, no React: `normalizeGraph`, layouts, search, picking, labels, camera maths |
 | `@particle-academy/fancy-graph/worker` | The layout Worker module (for `workerLayout`) |
-| `@particle-academy/fancy-graph/three` | `<GraphView3D>`, `<GraphScene3D>` (inside your own fancy-3d-three `<Stage>`), 3D layer builders |
+| `@particle-academy/fancy-graph/three` | `<GraphView3D>`, `<GraphScene3D>` (inside your own fancy-3d-three `<Stage>`), 3D layer builders. Custom layers should import three's classes from `@particle-academy/fancy-3d-three/three` too |
 
 ## Data
 

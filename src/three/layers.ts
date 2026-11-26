@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import * as THREE from "@particle-academy/fancy-3d-three/three";
 import { hasHighlightRing, LINK_ACTIVE, LINK_DIMMED, NODE_ACTIVE, NODE_NORMAL } from "../interaction";
 import type { IndexedLink } from "../types";
 import type { GraphLayer3D, LayerContext3D, LayerFrame3D } from "./types";

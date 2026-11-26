@@ -23,9 +23,12 @@ npm install @particle-academy/fancy-graph
 npm install @particle-academy/fancy-3d-three @particle-academy/fancy-3d three
 ```
 
-The 2D view has no 3D dependency; `three` and fancy-3d-three are optional peers,
-loaded only by the `@particle-academy/fancy-graph/three` entry. No runtime
-dependencies.
+The 2D view has no 3D dependency. The 3D view is built on fancy-3d-three: it is
+an optional peer (0.3.0 or later), loaded only by the
+`@particle-academy/fancy-graph/three` entry, and fancy-graph takes three.js only
+through it (`@particle-academy/fancy-3d-three/three`). fancy-graph declares no
+`three` dependency of its own; you install `three` because fancy-3d-three needs
+it. No runtime dependencies.
 
 ## Usage
 
@@ -103,20 +106,23 @@ GPU: NVIDIA RTX 3070 through ANGLE / Direct3D 11.
 
 | View | Nodes / links | Frame cost p50 / p95 / max (ms) | Frame interval p50 / p95 (ms) |
 |---|---|---|---|
-| 2D canvas | 650 / 900 | 0.2 / 0.4 / 0.8 | 16.7 / 16.8 |
-| 2D canvas | 4,000 / 6,000 | 0.9 / 1.3 / 1.8 | 16.7 / 16.8 |
-| 3D cosmos | 650 / 900 | 0.3 / 0.5 / 0.6 | 16.7 / 16.8 |
-| 3D cosmos | 4,000 / 6,000 | 1.0 / 1.4 / 1.8 | 16.7 / 16.8 |
+| 2D canvas | 650 / 900 | 0.2 / 0.4 / 1.1 | 16.7 / 16.7 |
+| 2D canvas | 4,000 / 6,000 | 0.9 / 1.4 / 2.3 | 16.7 / 16.8 |
+| 3D cosmos | 650 / 900 | 0.2 / 0.4 / 0.6 | 16.7 / 16.8 |
+| 3D cosmos | 4,000 / 6,000 | 1.0 / 1.7 / 2.1 | 16.7 / 16.7 |
+
+Run to run, these move by a few tenths of a millisecond: the run before this
+one measured 1.3 (2D) and 1.4 (3D) ms p50 at 4,000 nodes.
 
 No GPU (SwiftShader, a CPU rasteriser; a floor for weak hardware, 10-frame
 samples):
 
 | View | Nodes / links | Frame cost p50 / p95 (ms) | Frame interval p50 / p95 (ms) |
 |---|---|---|---|
-| 2D canvas | 650 / 900 | 0.7 / 1.1 | 16.7 / 16.7 |
-| 2D canvas | 4,000 / 6,000 | 2.0 / 3.6 | 16.7 / 16.7 |
-| 3D cosmos | 650 / 900 | 0.6 / 1.0 | 33.3 / 66.8 |
-| 3D cosmos | 4,000 / 6,000 | 2.3 / 2.5 | 100 / 166.7 |
+| 2D canvas | 650 / 900 | 0.5 / 0.7 | 16.7 / 16.8 |
+| 2D canvas | 4,000 / 6,000 | 1.8 / 3.0 | 16.7 / 16.7 |
+| 3D cosmos | 650 / 900 | 0.5 / 0.9 | 33.3 / 83.3 |
+| 3D cosmos | 4,000 / 6,000 | 2.0 / 2.3 | 100.1 / 200.1 |
 
 Without a GPU the 3D cosmos's frame cost stays low while its frame interval
 grows, so the time goes to rasterising (its glows, galaxy discs and dust are

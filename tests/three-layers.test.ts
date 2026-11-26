@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import * as THREE from "@particle-academy/fancy-3d-three/three";
 import { describe, expect, it } from "vitest";
 import { normalizeGraph, type GraphCluster } from "../src/core";
 import { createInstancedLayer, createPointsLayer, linkLayer3D, nodeLayer3D, type LayerFrame3D } from "../src/three/index";

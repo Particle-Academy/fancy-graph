@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import * as THREE from "@particle-academy/fancy-3d-three/three";
 import { orbitFrom, orbitPosition, type Camera3D } from "../camera";
 import { groupClusters } from "../clusters";
 import { colorFor, parseColor } from "../color";

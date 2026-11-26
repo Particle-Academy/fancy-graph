@@ -14,11 +14,13 @@ import * as root from "../src/index";
  */
 declare global {
   interface ImportMeta {
-    glob(pattern: string, options: { query: "?raw"; import: "default"; eager: true }): Record<string, string>;
+    glob(pattern: string | string[], options: { query: "?raw"; import: "default"; eager: true }): Record<string, string>;
   }
 }
 
 const SOURCES = import.meta.glob("../src/**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true });
+// Everything else that ships in the repo: tests, the cosmos example and the bench harness.
+const OTHERS = import.meta.glob(["../tests/**/*.{ts,tsx}", "../examples/**/*.ts", "../bench/**/*.{ts,tsx,mjs}"], { query: "?raw", import: "default", eager: true });
 const IMPORT = /(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g;
 
 function normalize(path: string): string {
@@ -72,20 +74,35 @@ describe("entry isolation", () => {
     expect([...bare].filter((s) => s === "react" || s.startsWith("react-dom") || s.startsWith("react/"))).toEqual([]);
   });
 
-  it("only the ./three entry reaches three, and it does", () => {
+  it("the ./three entry reaches three only through fancy-3d-three", () => {
     const { bare } = reachable("src/three/index.ts");
-    expect([...bare]).toContain("three");
+    expect([...bare]).toContain("@particle-academy/fancy-3d-three/three");
     expect([...bare]).toContain("@particle-academy/fancy-3d-three/react");
+    expect([...bare].filter((s) => s === "three" || s.startsWith("three/"))).toEqual([]);
+  });
+
+  it("no file in the repo imports three directly (src, tests, examples, bench)", () => {
+    expect(Object.keys(OTHERS).length).toBeGreaterThan(10);
+    const direct = Object.entries({ ...SOURCES, ...OTHERS })
+      .filter(([, src]) => [...src.matchAll(IMPORT)].some((m) => {
+        const spec = m[1] ?? m[2];
+        return spec === "three" || spec.startsWith("three/");
+      }))
+      .map(([file]) => file);
+    expect(direct).toEqual([]);
   });
 
   it("the root entry re-exports the whole core", () => {
     expect(Object.keys(root)).toEqual(expect.arrayContaining(Object.keys(core)));
   });
 
-  it("declares three and fancy-3d-three as optional peers and has no runtime dependencies", () => {
-    const p = pkg as { dependencies?: Record<string, string>; peerDependenciesMeta: Record<string, { optional?: boolean }> };
+  it("has no three dependency of any kind: 3D comes only through fancy-3d-three, an optional peer", () => {
+    type Deps = Record<string, string> | undefined;
+    const p = pkg as { dependencies?: Deps; devDependencies?: Deps; peerDependencies?: Deps; optionalDependencies?: Deps; peerDependenciesMeta: Record<string, { optional?: boolean }> };
     expect(p.dependencies ?? {}).toEqual({});
-    expect(p.peerDependenciesMeta.three.optional).toBe(true);
+    for (const field of [p.devDependencies, p.peerDependencies, p.optionalDependencies]) expect(Object.keys(field ?? {})).not.toContain("three");
+    expect(Object.keys(p.peerDependenciesMeta)).not.toContain("three");
+    expect(p.peerDependencies?.["@particle-academy/fancy-3d-three"]).toMatch(/^>=0\.3\.0/);
     expect(p.peerDependenciesMeta["@particle-academy/fancy-3d-three"].optional).toBe(true);
   });
 });

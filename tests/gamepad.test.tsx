@@ -7,7 +7,7 @@
  */
 import { act, createRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import * as THREE from "three";
+import * as THREE from "@particle-academy/fancy-3d-three/three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GraphView, type GraphViewHandle, type GraphViewProps } from "../src/index";
 import type { GraphData, IndexedGraph } from "../src/core";

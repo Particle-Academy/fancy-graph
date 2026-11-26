@@ -11,8 +11,9 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   clean: true,
-  // `three` and fancy-3d-three are OPTIONAL peers, only the `./three` entry may
-  // import them; tests/entry-isolation.test.ts holds the core entries to that.
-  external: ["react", "react-dom", /^three(\/.*)?$/, /^@particle-academy\//],
+  // fancy-3d-three is an OPTIONAL peer, and only the `./three` entry may import
+  // it; three.js itself arrives only through `@particle-academy/fancy-3d-three/three`.
+  // tests/entry-isolation.test.ts holds both.
+  external: ["react", "react-dom", /^@particle-academy\//],
   treeshake: true,
 });

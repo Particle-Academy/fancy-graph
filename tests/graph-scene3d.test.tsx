@@ -2,7 +2,7 @@
 import { act, createRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import * as THREE from "three";
+import * as THREE from "@particle-academy/fancy-3d-three/three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GraphData, IndexedGraph } from "../src/core";
 import { GraphSceneOnStage, GraphView3D, type GraphLayer3D, type GraphScene3DHandle, type GraphSceneOnStageProps, type StageLike } from "../src/three/index";

@@ -1,4 +1,4 @@
-import type * as THREE from "three";
+import type * as THREE from "@particle-academy/fancy-3d-three/three";
 import type { GraphCluster, IndexedGraph } from "../types";
 
 /** The parts of OrbitControls the kit drives. fancy-3d-three's Stage exposes one as `controls`. */

@@ -21,11 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     Worker (`/worker` entry) above a configurable size.
   - Pluggable rendering per node, link, cluster and background.
   - `/three`: `<GraphView3D>` and `<GraphScene3D>` on fancy-3d-three's
-    `<Stage>`, with `createInstancedLayer` (custom GLSL 3 instanced shaders,
+    `<Stage>`, built entirely on fancy-3d-three: three.js comes only through
+    `@particle-academy/fancy-3d-three/three` (fancy-3d-three 0.3.0 or later, an
+    optional peer), and fancy-graph declares no `three` dependency of its own.
+    With `createInstancedLayer` (custom GLSL 3 instanced shaders,
     additive or premultiplied blending, back-to-front order, per-frame
     positions), `createPointsLayer`, `nodeLayer3D`, `linkLayer3D`. Uses the
-    Stage's `controls` handle when present and falls back to the Stage's
-    `camera.lookAt(controls.target)` on fancy-3d-three 0.2.1.
+    Stage's `controls` handle, and falls back to `camera.lookAt(controls.target)`
+    for a Stage-like context without one.
   - Kit-owned camera (pan, zoom, rotate, touch, keyboard, fly-to, follow),
     picking, neighbour highlighting, search focus, labels with overlap
     handling, reduced motion, stable `data-fancy-graph*` handles, activity

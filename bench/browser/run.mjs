@@ -27,8 +27,10 @@ const shoot = profile === "hardware";
 const browser = await chromium.launch({ headless: true, args });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 });
 const consoleLog = [];
-page.on("console", (m) => consoleLog.push({ type: m.type(), text: m.text() }));
-page.on("pageerror", (e) => consoleLog.push({ type: "pageerror", text: String(e) }));
+// Every message carries the phase it arrived in, so a warning can be traced to the step that caused it.
+let phase = "load";
+page.on("console", (m) => consoleLog.push({ phase, type: m.type(), text: m.text() }));
+page.on("pageerror", (e) => consoleLog.push({ phase, type: "pageerror", text: String(e) }));
 
 await page.goto(pathToFileURL(join(here, "index.html")).href);
 await page.waitForFunction(() => document.title === "fancy-graph harness ready");
@@ -41,6 +43,7 @@ async function shot(opts) {
 }
 
 async function bench(label, mount, opts) {
+  phase = `bench: ${label}`;
   const state = await page.evaluate(([m, o]) => window.harness[m](o), [mount, opts]);
   await page.evaluate(() => window.harness.waitFrames(30));
   // The software floor is slow enough at 4,000 nodes (seconds per frame) that a smaller sample is the only practical one.
@@ -55,6 +58,7 @@ async function bench(label, mount, opts) {
 // ---- 2D
 await bench("2D, 650 nodes", "mount2d", { nodes: 650, links: 900 });
 await shot({ path: join(shots, "2d-650.png") });
+phase = "2D search + selection";
 await page.evaluate(() => window.harness.mount2d({ nodes: 650, links: 900, search: "nova", selected: "agent-3" }));
 await page.evaluate(() => window.harness.waitFrames(20));
 await shot({ path: join(shots, "2d-650-selected-search.png") });
@@ -65,12 +69,14 @@ await shot({ path: join(shots, "2d-4000.png") });
 // ---- 3D cosmos
 await bench("3D cosmos, 650 nodes", "mount3d", { nodes: 650, links: 900 });
 await shot({ path: join(shots, "3d-cosmos-650.png") });
+phase = "3D fly to galaxy";
 await page.evaluate(async () => {
   const h = window.harness.handle();
   h.flyToCluster(h.getClusters()[1].id);
   await window.harness.waitFrames(150);
 });
 await shot({ path: join(shots, "3d-cosmos-galaxy.png") });
+phase = "3D select + follow";
 const picked = await page.evaluate(async () => {
   const h = window.harness.handle();
   h.select("agent-0", { source: "agent" });
@@ -87,6 +93,7 @@ await shot({ path: join(shots, "3d-cosmos-4000.png") });
 
 // Gamepad path: focus stepping, neighbourhood mode, analog camera, on both renderers.
 const gamepad = {};
+phase = "2D gamepad";
 await page.evaluate(() => window.harness.mount2d({ nodes: 650, links: 900, focused: "agent-0", neighborhood: true }));
 await page.evaluate(() => window.harness.waitFrames(10));
 gamepad.step2d = await page.evaluate(async () => {
@@ -102,6 +109,7 @@ gamepad.step2d = await page.evaluate(async () => {
   return { seq, focusedAttr: document.querySelector("[data-fancy-graph]")?.getAttribute("data-fancy-graph-focused"), neighbors: h.neighbors(seq[seq.length - 1] ?? "agent-0").length };
 });
 await shot({ path: join(shots, "2d-gamepad-neighbourhood.png") });
+phase = "3D gamepad";
 await page.evaluate(() => window.harness.mount3d({ nodes: 650, links: 900, focused: "agent-0", neighborhood: true }));
 await page.evaluate(() => window.harness.waitFrames(60));
 gamepad.step3d = await page.evaluate(async () => {
@@ -120,6 +128,7 @@ gamepad.step3d = await page.evaluate(async () => {
 await shot({ path: join(shots, "3d-gamepad-neighbourhood.png") });
 
 // A click through the real input path, on the 2D view.
+phase = "2D click";
 await page.evaluate(() => window.harness.mount2d({ nodes: 650, links: 900 }));
 await page.evaluate(() => window.harness.waitFrames(10));
 const clickTarget = await page.evaluate(() => window.harness.handle().screenPosition("agent-0"));
