@@ -106,6 +106,17 @@ jobs:
       - name: Install
         run: npm install --no-audit --no-fund --legacy-peer-deps
 
+      # CI-only, for tests. fancy-graph declares no `three` dependency: its 3D
+      # code takes three.js through @particle-academy/fancy-3d-three/three, and
+      # three is fancy-3d-three's peer. --legacy-peer-deps (the kit standard)
+      # does not install peers, so the tests' three is installed here, with
+      # --no-save so package.json and the lockfile never gain it. Version: the
+      # one fancy-3d-three's own dev pin uses. Dev and test use of three for
+      # fancy-graph is approved by the owner: ForceTheQuestion q_2b73af5d,
+      # 2026-11-26.
+      - name: Install three for tests (no-save)
+        run: npm install --no-save --no-audit --no-fund --legacy-peer-deps three@^0.184.0
+
       - name: Lint
         run: npm run lint --if-present
 

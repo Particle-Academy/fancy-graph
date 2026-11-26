@@ -38,3 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     input, a focus ring distinct from selection, `neighborhood` mode, and
     labels always shown for the focus and its neighbours.
   - A measured benchmark at 650 nodes and at 4,000 nodes / 6,000 links (README).
+
+### Changed
+
+- CI installs `three` for the tests only, in a separate `--no-save` step at the
+  version fancy-3d-three's own dev pin uses (`^0.184.0`), because the kit's
+  standard `--legacy-peer-deps` install skips fancy-3d-three's peers. The
+  package still declares no `three` dependency. Dev and test use of three is
+  approved by the owner (ForceTheQuestion q_2b73af5d, 2026-11-26). Consumers do
+  nothing.
