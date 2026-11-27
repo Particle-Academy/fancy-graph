@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-27
+
 **Consumer action: none.** Everything here is additive; existing props keep
 their meaning and defaults, and nothing new is drawn unless you ask for it.
 Reported by the owner using the cosmos preset (2026-11-27): no practical way
