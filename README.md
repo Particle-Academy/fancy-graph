@@ -123,6 +123,38 @@ set up as for any react-fancy component. It is off unless you pass it. Any
 component taking `GraphControlsProps` works the same way, or leave `controls`
 off and drive the props yourself.
 
+**Styles.** Every class the overlay shows comes from react-fancy's dist (the
+overlay writes none of its own), so Tailwind v4 must scan react-fancy. In the
+CSS file Tailwind builds, with the path relative to that file (a typical Vite
+app's `src/index.css` or `resources/css/app.css`, one level below the project
+root):
+
+```css
+@import "tailwindcss";
+@source "../node_modules/@particle-academy/react-fancy/dist/**/*.js";
+```
+
+Without it the switches, buttons and panel render unstyled. fancy-graph's own
+dist needs no `@source` line.
+
+**Accent.** react-fancy's switches and buttons take their "on" colour from a
+`color` prop, not from a CSS token, and default to blue. The overlay passes its
+`color` through to every switch, the chosen link mode and the open panel button:
+
+```tsx
+const TealControls = (p: GraphControlsProps) => <GraphViewControls {...p} color="teal" />;
+
+<GraphView3D data={data} preset="cosmos" controls={TealControls} />;
+```
+
+Any Tailwind palette name works. For your own colour use `color="brand"` and set
+react-fancy's brand variables (`--color-brand`, `--color-brand-contrast`,
+`--color-brand-hover`) in your `@theme` or on `:root`.
+
+Each clickable element carries a stable handle for tests and agents:
+`[data-fancy-graph-toggle="layer:<id>"]`, `"link-mode:all"`,
+`"link-mode:focus"` and `"motion"`, on the switch or radio button itself.
+
 Each built-in has a factory for its options: `networkPreset`, `radialPreset`,
 `hierarchyPreset`, `clusteredPreset` (2D) and `network3DPreset`,
 `cosmosPreset`, `layeredPreset` (3D). A preset is plain data, so your own is

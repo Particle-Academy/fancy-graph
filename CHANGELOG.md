@@ -10,6 +10,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-27
+
+**Consumer action: none.** Existing handles keep their place and meaning, and
+the overlay looks the same unless you pass the new `color`. Reported by two
+apps using `GraphViewControls`.
+
+### Fixed
+
+- **Every clickable control in the overlay has its own handle, on the element
+  that takes the click.** react-fancy's Switch puts `data-*` on its wrapper, so
+  `data-fancy-graph-layer="<id>"` and `data-fancy-graph-control="motion"` named
+  a div that ignores clicks, and the link-mode options had no handle at all
+  (only their label text). Now the `role="switch"` / `role="radio"` buttons
+  carry `data-fancy-graph-toggle`: `layer:<id>`, `link-mode:all`,
+  `link-mode:focus`, `motion`. The wrapper handles stay where they were.
+
+### Added
+
+- **`color` on `GraphViewControls`**, react-fancy's own accent prop (a palette
+  name such as `"teal"`, or `"brand"` for the host's `--color-brand`
+  variables), passed to every switch, the chosen link mode and the open panel
+  button. Unset, react-fancy's default blue applies, as before. react-fancy's
+  Switch, MultiSwitch and Button take their accent only from `color`, so a
+  host had no way to set it for the overlay.
+
+### Docs
+
+- README and AGENTS.md: the Tailwind v4 `@source` line the overlay needs. It is
+  react-fancy's (`@source "../node_modules/@particle-academy/react-fancy/dist/**/*.js";`),
+  because the overlay writes no class names of its own; fancy-graph's dist
+  needs none, and a test now holds that.
+- README and AGENTS.md: how to set the overlay's accent (`color="teal"`, or
+  `color="brand"` with the brand variables), and the new toggle handles.
+
 ## [0.2.0] - 2026-11-27
 
 **Consumer action: none.** Everything here is additive; existing props keep

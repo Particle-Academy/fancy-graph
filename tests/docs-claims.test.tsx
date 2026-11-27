@@ -32,6 +32,31 @@ declare global {
   }
 }
 
+describe("view-controls styling docs", () => {
+  const raw = (glob: Record<string, unknown>) => String(Object.values(glob)[0]);
+  const readme = raw(import.meta.glob("../README.md", { query: "?raw", import: "default", eager: true }));
+  const agents = raw(import.meta.glob("../AGENTS.md", { query: "?raw", import: "default", eager: true }));
+  const source = raw(import.meta.glob("../src/controls/GraphViewControls.tsx", { query: "?raw", import: "default", eager: true }));
+
+  it("the overlay writes no class names of its own, so react-fancy's @source is the one a host needs", () => {
+    // Every class the overlay shows comes from react-fancy's dist. If this
+    // fails, the overlay started writing Tailwind classes: the docs must then
+    // ask for a @source on this package's dist too.
+    const classNames = source.match(/className=/g) ?? [];
+    const passthrough = source.match(/className=\{className\}/g) ?? [];
+    expect(classNames.length).toBe(passthrough.length);
+    expect(source).not.toMatch(/\bcn\(|clsx\(/);
+  });
+
+  it("README and AGENTS.md give the @source line and the accent", () => {
+    for (const [name, doc] of [["README", readme], ["AGENTS", agents]] as const) {
+      expect(doc, name).toContain('@source "../node_modules/@particle-academy/react-fancy/dist/**/*.js";');
+      expect(doc, name).toContain('color="teal"');
+      expect(doc, name).toContain("--color-brand");
+    }
+  });
+});
+
 describe("preset docs", () => {
   const shots = Object.keys(import.meta.glob("../docs/presets/*.png"));
   const readme = String(Object.values(import.meta.glob("../README.md", { query: "?raw", import: "default", eager: true }))[0]);

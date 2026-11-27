@@ -130,10 +130,45 @@ carries `data-fancy-graph-preset` and `data-fancy-graph-theme`.
   `selectedLabel`, `onClearSelection`, `layers`, `onLayerChange`,
   `linkVisibility`, `onLinkVisibilityChange`, `animated`, `paused`,
   `onPausedChange`). The view wires every prop. Handles:
-  `[data-fancy-graph-controls]`, `[data-fancy-graph-control="clear-selection" | "panel" | "layer" | "link-visibility" | "motion"]`,
-  and `[data-fancy-graph-layer="<id>"]` on each layer switch. Options:
-  `position`, `defaultOpen`, `labels` (every string). Your own component needs
-  `pointer-events: auto`; the slot it sits in passes clicks through to the view.
+  `[data-fancy-graph-controls]`, `[data-fancy-graph-control="clear-selection" | "panel" | "layer" | "link-visibility" | "motion"]`
+  on each control's root, and `[data-fancy-graph-layer="<id>"]` on each layer
+  switch's root. **To click one, use `data-fancy-graph-toggle`**, which sits on
+  the element that takes the click (the `role="switch"` / `role="radio"`
+  button): `layer:<id>` per layer, `link-mode:all`, `link-mode:focus`,
+  `motion`. A layer switch's root is a wrapper, so a click on
+  `[data-fancy-graph-layer="orbits"]` itself does nothing. Options: `position`,
+  `defaultOpen`, `labels` (every string), `color` (the accent, below). Your own
+  component needs `pointer-events: auto`; the slot it sits in passes clicks
+  through to the view.
+- **Overlay styles need react-fancy's `@source`.** The overlay writes no class
+  names of its own: every class it shows comes from react-fancy's dist, so
+  Tailwind v4 must scan that, as for any react-fancy component. In the CSS file
+  Tailwind builds (path relative to that file; this is a typical Vite app's
+  `resources/css/app.css` or `src/index.css` one level below the root):
+
+  ```css
+  @import "tailwindcss";
+  @source "../node_modules/@particle-academy/react-fancy/dist/**/*.js";
+  ```
+
+  Without it the switches, buttons and panel render unstyled. fancy-graph's own
+  dist needs no `@source` line (a test holds that it carries no class names).
+- **Overlay accent: react-fancy's `color`, not a token.** react-fancy's Switch,
+  MultiSwitch and Button take their "on" colour from a `color` prop (a Tailwind
+  palette name, or `"brand"`); unset they are blue, and the `--fancy-accent`
+  token does NOT reach them. So the overlay takes `color` and passes it to every
+  switch, the chosen link mode and the open panel button. Bind it once, at module
+  scope so the component stays stable:
+
+  ```tsx
+  const TealControls = (p: GraphControlsProps) => <GraphViewControls {...p} color="teal" />;
+  <GraphView3D data={data} preset="cosmos" controls={TealControls} />;
+  ```
+
+  For the host's own colour, pass `color="brand"` and set react-fancy's brand
+  variables in your CSS: `@theme { --color-brand: #0d9488; --color-brand-contrast: #ffffff; --color-brand-hover: #0f766e; }`
+  (swap the pair per mode under `.dark` if your brand needs it). The focus
+  rings stay react-fancy's blue either way.
 - **Handle** (`ref`): `select`, `clearSelection`, `flyTo`, `fit`, `reset`,
   `getCamera`, `setCamera`, `screenPosition`, `pick`, `getState` (now also
   `layers`, `linkVisibility`, `paused`, `animated`), `getClusters`,

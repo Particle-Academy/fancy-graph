@@ -103,6 +103,58 @@ describe("<GraphViewControls>", () => {
     expect(p.onPausedChange).toHaveBeenCalledWith(true);
   });
 
+  it("every clickable control has its own handle, on the element that takes the click", () => {
+    const p = base({ linkVisibility: "focus", animated: true, layers: [
+      { id: "links", label: "Links", visible: true },
+      { id: "orbits", label: "Orbit paths", visible: false },
+      { id: "labels", label: "Labels", visible: true },
+    ] });
+    act(() => root.render(<GraphViewControls {...p} defaultOpen />));
+    const toggles = [...container.querySelectorAll<HTMLElement>("[data-fancy-graph-toggle]")];
+    expect(toggles.map((el) => el.dataset.fancyGraphToggle)).toEqual(["layer:links", "layer:orbits", "layer:labels", "link-mode:all", "link-mode:focus", "motion"]);
+    // Each handle is the control itself, not a wrapper: a click on it acts.
+    for (const el of toggles) expect(["switch", "radio"]).toContain(el.getAttribute("role"));
+    press(q('[data-fancy-graph-toggle="layer:orbits"]')!);
+    expect(p.onLayerChange).toHaveBeenLastCalledWith("orbits", true);
+    press(q('[data-fancy-graph-toggle="layer:labels"]')!);
+    expect(p.onLayerChange).toHaveBeenLastCalledWith("labels", false);
+    press(q('[data-fancy-graph-toggle="link-mode:all"]')!);
+    expect(p.onLinkVisibilityChange).toHaveBeenLastCalledWith("all");
+    expect(q('[data-fancy-graph-toggle="link-mode:focus"]')!.getAttribute("aria-checked")).toBe("true");
+    press(q('[data-fancy-graph-toggle="motion"]')!);
+    expect(p.onPausedChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it("the toggle handles follow the layers as they change", () => {
+    act(() => root.render(<GraphViewControls {...base()} defaultOpen />));
+    act(() => root.render(<GraphViewControls {...base({ layers: [{ id: "background", label: "Sky", visible: true }, { id: "links", label: "Links", visible: true }] })} defaultOpen />));
+    const ids = [...container.querySelectorAll<HTMLElement>("[data-fancy-graph-toggle^='layer:']")].map((el) => el.dataset.fancyGraphToggle);
+    expect(ids).toEqual(["layer:background", "layer:links"]);
+  });
+
+  it("takes the host's accent through react-fancy's own colour prop, and keeps react-fancy's default without one", () => {
+    const p = base({ linkVisibility: "all", animated: true });
+    act(() => root.render(<GraphViewControls {...p} defaultOpen color="teal" />));
+    expect(q('[data-fancy-graph-toggle="layer:links"]')!.className).toContain("bg-teal-500");
+    expect(q('[data-fancy-graph-toggle="motion"]')!.className).toContain("bg-teal-500");
+    expect(q("[data-react-fancy-multi-switch-thumb]")!.className).toContain("bg-teal-700");
+    expect(q('[data-fancy-graph-control="panel"]')!.className).toContain("bg-teal-");
+    expect(container.innerHTML).not.toMatch(/bg-blue-(500|600|700)/);
+
+    act(() => root.render(<GraphViewControls {...p} defaultOpen color="brand" />));
+    expect(q('[data-fancy-graph-toggle="layer:links"]')!.className).toContain("bg-brand");
+    expect(q('[data-fancy-graph-control="panel"]')!.className).toContain("bg-brand");
+
+    act(() => root.render(<GraphViewControls {...p} defaultOpen />));
+    expect(q('[data-fancy-graph-toggle="layer:links"]')!.className).toContain("bg-blue-500");
+    expect(q('[data-fancy-graph-control="panel"]')!.className).toContain("bg-blue-600");
+  });
+
+  it("an unopened panel button stays react-fancy's plain button whatever the accent", () => {
+    act(() => root.render(<GraphViewControls {...base()} color="teal" />));
+    expect(q('[data-fancy-graph-control="panel"]')!.className).not.toContain("bg-teal-");
+  });
+
   it("every visible string can be replaced", () => {
     act(() => root.render(<GraphViewControls {...base({ selected: "b", selectedLabel: "Beta" })} labels={{ panel: "Ansicht", clearSelection: "Auswahl aufheben" }} />));
     expect(q('[data-fancy-graph-control="panel"]')!.textContent).toContain("Ansicht");
