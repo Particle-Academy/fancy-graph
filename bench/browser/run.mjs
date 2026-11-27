@@ -192,9 +192,15 @@ const controlsOk =
   cosmosControls.layers === "background clusters links labels" &&
   cosmosControls.linkVisibility === "all";
 
+// A preset switched in place on a mounted view, every ordered pair, 2D and 3D (0.2.2: 3D into the cosmos threw).
+phase = "preset switch";
+const presetSwitch = {};
+for (const kind of ["2d", "3d"]) presetSwitch[kind] = await page.evaluate((k) => window.harness.switchPresets(k), kind);
+const switchOk = Object.values(presetSwitch).every((steps) => steps.length > 0 && steps.every((x) => x.got === x.want));
+
 await browser.close();
 
-results.checks = { labels2dVisible: labels2d, selected3d: picked, handles3d, clicked2d: clicked, gamepad, gallery, cosmosControls };
+results.checks = { labels2dVisible: labels2d, selected3d: picked, handles3d, clicked2d: clicked, gamepad, gallery, cosmosControls, presetSwitch };
 results.console = consoleLog;
 mkdirSync(join(here, "..", "results"), { recursive: true });
 writeFileSync(join(here, "..", "results", `frame-times-${profile}.json`), JSON.stringify(results, null, 2) + "\n");
@@ -205,8 +211,8 @@ console.log(JSON.stringify({ checks: results.checks, console: consoleLog }, null
 // profile is the check, and any warning at all fails it.
 const driverNote = (m) => profile === "software" && m.type === "warning" && /^\[\.WebGL-[^\]]+\]GL Driver Message \(OpenGL, Performance/.test(m.text);
 const bad = consoleLog.filter((m) => (m.type === "error" || m.type === "pageerror" || m.type === "warning") && !driverNote(m));
-if (bad.length || clicked !== "agent-0" || picked !== "agent-0" || !controlsOk) {
-  console.error(`FAILED: ${bad.length} console errors/warnings, clicked=${clicked}, picked=${picked}, cosmosControls=${JSON.stringify(cosmosControls)}`);
+if (bad.length || clicked !== "agent-0" || picked !== "agent-0" || !controlsOk || !switchOk) {
+  console.error(`FAILED: ${bad.length} console errors/warnings, clicked=${clicked}, picked=${picked}, cosmosControls=${JSON.stringify(cosmosControls)}, presetSwitch=${switchOk ? "ok" : JSON.stringify(presetSwitch)}`);
   process.exit(1);
 }
 console.log("OK");

@@ -1,6 +1,6 @@
 {
   "name": "@particle-academy/fancy-graph",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Knowledge-graph map viewer for React: a controlled <GraphView> over plain JSON nodes and links, with pluggable layout, physics and rendering. 2D canvas in the core; 3D on a subpath, through @particle-academy/fancy-3d-three.",
   "repository": {
     "type": "git",

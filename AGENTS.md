@@ -22,6 +22,10 @@ npm install @particle-academy/fancy-graph @particle-academy/fancy-3d-three @part
   runtime dependencies.
 - Pre-1.0: breaking changes land in MINOR releases. Read the changelog entry.
 
+## Upgrading
+
+- **A running Vite dev server keeps its prebundled old version after an upgrade** until it restarts (or run `vite --force`), so a fix can look missing in dev when it is installed.
+
 ## Find it on the Fancy MCP server
 
 The catalog server is `https://ui.particle.academy/mcp` (streamable HTTP, no API

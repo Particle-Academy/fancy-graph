@@ -169,14 +169,18 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
   useLayoutEffect(() => {
     engineRef.current?.setLimits(limits);
   }, [limits, stage]);
-  useLayoutEffect(() => {
-    engineRef.current?.setOptions(options());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preset, themeKey, props.clusters, props.clusterLabel, props.nodeColor, props.nodeSize, model.labelOf, model.linkVisibility, model.layers, model.paused, props.homeYaw, props.homePitch, props.applyThemeBackground, stage]);
+  // The scene BEFORE the options. A preset change brings a new layout and new
+  // layers together; run setOptions first and it mounts the new layers (and calls
+  // the new nodeSize) against the OLD layout's meta, and the cosmos reads
+  // meta.bodies. setScene takes the options too, so setOptions after it is a no-op remount-wise.
   useLayoutEffect(() => {
     engineRef.current?.setScene(graph, layout, options());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph, layout, renderers, stage]);
+  useLayoutEffect(() => {
+    engineRef.current?.setOptions(options());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preset, themeKey, props.clusters, props.clusterLabel, props.nodeColor, props.nodeSize, model.labelOf, model.linkVisibility, model.layers, model.paused, props.homeYaw, props.homePitch, props.applyThemeBackground, stage]);
   useLayoutEffect(() => {
     engineRef.current?.setInteraction(model.selectedIndex, model.hoveredIndex, model.matches, model.focusedIndex, !!props.neighborhood);
   }, [model.selectedIndex, model.hoveredIndex, model.matches, model.focusedIndex, props.neighborhood, stage]);

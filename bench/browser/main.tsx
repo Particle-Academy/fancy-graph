@@ -115,7 +115,43 @@ function treeData(): GraphData {
   return { nodes, links };
 }
 
+let setSwitchPreset: ((id: string) => void) | null = null;
+
+/** One mounted view whose preset changes in place (no key), as a consumer's preset picker does. */
+function PresetSwitcher({ kind, first, data }: { kind: "2d" | "3d"; first: string; data: GraphData }) {
+  const [preset, setPreset] = useState(first);
+  setSwitchPreset = setPreset;
+  const style = { width: "100%", height: "100%" };
+  return kind === "2d" ? (
+    <GraphView data={data} preset={preset as keyof typeof GRAPH_PRESETS_2D} theme={{ base: "dark", typeColors: COSMOS_COLORS }} reducedMotion style={style} aria-label="Preset switch" />
+  ) : (
+    <GraphView3D data={data} preset={preset as keyof typeof GRAPH_PRESETS_3D} theme={{ base: "dark", typeColors: COSMOS_COLORS }} flyOnSelect={false} reducedMotion style={style} aria-label="Preset switch" />
+  );
+}
+
 const harness = {
+  /**
+   * Switches one mounted view through every ordered pair of its kind's presets,
+   * in place. Returns the preset the root reports after each step; a throw
+   * unmounts the tree, so the attribute goes missing and the page logs an error.
+   */
+  async switchPresets(kind: "2d" | "3d") {
+    reset();
+    const ids = Object.keys(kind === "2d" ? GRAPH_PRESETS_2D : GRAPH_PRESETS_3D);
+    const { nodes, links } = cosmosData(160, 220, 1);
+    root!.render(<PresetSwitcher kind={kind} first={ids[0]} data={{ nodes, links }} />);
+    await waitFrames(10);
+    // A walk that takes every ordered pair: from each preset to every other.
+    const walk: string[] = [];
+    for (const a of ids) for (const b of ids) if (a !== b) walk.push(a, b);
+    const seen: { want: string; got: string | null }[] = [];
+    for (const id of walk) {
+      setSwitchPreset!(id);
+      await waitFrames(kind === "3d" ? 6 : 3);
+      seen.push({ want: id, got: document.querySelector("[data-fancy-graph]")?.getAttribute("data-fancy-graph-preset") ?? null });
+    }
+    return seen;
+  },
   /** One built-in preset, as a consumer would use it: the preset and a theme, nothing else. */
   async mountPreset(kind: "2d" | "3d", id: string, theme: "light" | "dark", selected: string | null) {
     reset();

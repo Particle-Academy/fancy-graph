@@ -10,6 +10,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-27
+
+**Consumer action: none.** A `key={preset}` you added to remount the 3D view on
+a preset change can be removed; it still works if you keep it.
+
+### Fixed
+
+- **A 3D view's `preset` can change in place.** Switching a mounted
+  `GraphView3D` / `GraphScene3D` into `"cosmos"` (from `"network"` or
+  `"layered"`) threw `Cannot read properties of undefined (reading 'bodies')`
+  since 0.1.0. The view applied the new preset's options (its layers and its
+  `nodeSize`) one step before its new layout, so the cosmos layers and sizes
+  read the old layout's meta, which has no bodies. The layout and layers now
+  change together first, then the options. Every ordered pair of 3D presets, and
+  of 2D presets, is now tested switching in place: no throw, and the new
+  preset's layers, layout and clusters match a fresh mount. The headless browser
+  check switches a real view through every pair too.
+
+### Changed
+
+- AGENTS.md: an Upgrading note. A running Vite dev server keeps its prebundled
+  old version after an upgrade until it restarts (or `vite --force`).
+
 ## [0.2.1] - 2026-11-27
 
 **Consumer action: none.** Existing handles keep their place and meaning, and
