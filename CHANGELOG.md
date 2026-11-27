@@ -10,6 +10,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Consumer action: none.** Everything here is additive; existing props keep
+their meaning and defaults, and nothing new is drawn unless you ask for it.
+Reported by the owner using the cosmos preset (2026-11-27): no practical way
+to unselect a node, and no way to switch orbits or link lines on or off.
+
+### Added
+
+- **Layer visibility as controlled JSON.** `layers` / `defaultLayers` /
+  `onLayersChange` on `<GraphView>`, `<GraphView3D>` and `<GraphScene3D>`, over
+  the layers the preset declares (new `layers: GraphLayerSpec[]` on
+  `GraphPreset2D` / `GraphPreset3D`): `links`, `labels`, `clusters`,
+  `background`, and the cosmos's `orbits`. In, a partial map
+  (`{ orbits: true }`); out, the full map. Handle: `getLayers()`,
+  `setLayer(id, visible, { source })`; `getState()` reports `layers`. A custom
+  3D layer joins a visibility layer with `layer: "<id>"`, else it belongs to
+  its slot. Headless helpers in the core: `resolveLayers`, `layerMap`,
+  `mergeLayerSpecs`, `isLayerVisible`, `effectiveLinkVisibility`,
+  `DEFAULT_LAYERS`.
+- **Orbit paths for the cosmos** (`cosmosOrbits()`, the `orbits` layer): one
+  faint ring per planet and asteroid around its star, brighter for the
+  highlighted bodies. There were none before, so there was nothing to switch;
+  the preset declares them **off by default** so its look is unchanged. Options
+  through `cosmosPreset({ orbits: { segments, alpha } })`.
+- **Link mode and motion are controllable:** `defaultLinkVisibility` /
+  `onLinkVisibilityChange` beside the existing `linkVisibility`, and
+  `defaultPaused` / `onPausedChange` beside `paused`. Handle:
+  `setLinkVisibility`, `setPaused`; `getState()` reports `linkVisibility`,
+  `paused` and `animated`. Activity events `layer`, `links` and `motion`.
+- **`clearSelection()`** on the handle, and stable root handles
+  `data-fancy-graph-layers`, `-link-visibility`, `-paused`.
+- **A `controls` slot and an optional overlay.** `controls={GraphViewControls}`
+  (new `@particle-academy/fancy-graph/controls` entry) draws a clear-selection
+  button and a panel with a switch per declared layer, all links or the
+  selection's only, and motion for animated layouts. Built from react-fancy's
+  `Button`, `Card`, `Switch` and `MultiSwitch`; every control has a
+  `data-fancy-graph-control` handle; every string is in `labels`. Any component
+  taking `GraphControlsProps` can fill the slot. In 3D it renders into the
+  Stage's overlay, so its clicks never reach the picker.
+  **Opt-in, not on by default:** react-fancy brings its own styles and
+  dependencies, and on by default would make every consumer install it and
+  draw new UI over every existing embed. It is an optional peer
+  (`>=5.13.0`, when the subpaths it uses appeared), imported only by
+  `/controls`; the core, root and `/three` entries never load it.
+- A headless browser check of the above on the cosmos, through real clicks, in
+  `bench/browser/run.mjs`.
+
+### Changed
+
+- **Clicking the selected node clears the selection** (2D and 3D). In 3D the
+  click used to be ignored; in 2D it re-reported the same id. In a dense view
+  such as the cosmos there may be no empty space left to click, so this was
+  the only way to unselect without the keyboard.
+- **3D picking prefers a direct hit.** It used to take the node nearest the
+  camera among everything within `pickRadius` (7 px), so a tiny asteroid a few
+  pixels off but in front stole a click aimed dead at a star behind it, which
+  also defeated clicking the selected node to clear it. Now a node under the
+  pointer wins (nearest the camera among those); a near miss counts only when
+  nothing is directly hit, and then the nearest on screen wins. `pickScreen`
+  in `"depth"` mode changes the same way; `"nearest"` (2D) is unchanged.
+- Clearing the selection releases a camera follow of that node.
+- Each 3D layer is mounted into its own group (`LayerContext3D.group`), so
+  one can be hidden without its slot-mates. Layers that add to `ctx.group`
+  need no change.
+- `GraphActivity["type"]` adds `"layer"`, `"links"` and `"motion"`. A
+  `switch` over it that must be exhaustive needs the three new cases.
+
 ## [0.1.0] - 2026-11-26
 
 ### Added

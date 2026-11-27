@@ -5,6 +5,7 @@
 export type { GraphActivity, GraphActivitySource, GraphCluster, GraphData, GraphLink, GraphNode, IndexedGraph, IndexedLink, Vec3 } from "./types";
 export { DEFAULT_LIMITS, resolveLimits, truncateLabel, type GraphLimits } from "./limits";
 export { normalizeGraph } from "./graph";
+export { DEFAULT_LAYERS, effectiveLinkVisibility, isLayerVisible, layerMap, mergeLayerSpecs, resolveLayers, type GraphLayerSpec, type GraphLayerState, type GraphLayerVisibility, type LinkVisibility } from "./layers";
 export { hash01, seeded } from "./random";
 export {
   computeLinkStates,

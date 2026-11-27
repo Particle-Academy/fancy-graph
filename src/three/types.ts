@@ -28,6 +28,7 @@ export interface StageLike {
 
 /** What a layer gets once, when it mounts. Add objects to `group`; the kit removes the group on unmount. */
 export interface LayerContext3D {
+  /** This layer's own group (one per layer, so a layer can be hidden alone). */
   group: THREE.Group;
   /** Draw order slot: background 0, cluster 1, link 2, node 3. */
   renderOrder: number;
@@ -74,6 +75,13 @@ export interface LayerFrame3D {
 
 /** A pluggable piece of the 3D scene: the background, the clusters, the links or the nodes. */
 export interface GraphLayer3D {
+  /**
+   * Which visibility layer this is (`layers` prop). Defaults to its slot:
+   * `background`, `clusters`, `links`, or `nodes` (never hidden). The cosmos's
+   * orbit paths say `"orbits"`. A hidden layer's group is invisible and its
+   * `update` is not called.
+   */
+  layer?: string;
   mount(ctx: LayerContext3D): void;
   update(frame: LayerFrame3D): void;
   dispose(): void;

@@ -9,8 +9,10 @@ import { effectiveFocus, freshCycle, stepFocusIndex, type PendingFocus } from ".
 import { useGraphModel, type GraphViewBaseProps } from "./model";
 import { resolvePreset2D, type GraphPreset2D, type GraphPreset2DId } from "../presets/presets2d";
 import { applyThemeVars, resolveTheme, typeColorsFor } from "../theme";
+import { DEFAULT_LAYERS, mergeLayerSpecs, type GraphLayerSpec } from "../layers";
+import { controlsDataset, controlsHandle, controlsState, isAnimatedLayout, renderControls, type GraphControlsHandle, type GraphControlsState } from "./controls";
 
-export interface GraphViewHandleBase {
+export interface GraphViewHandleBase extends GraphControlsHandle {
   /** Select a node (or null), through the same controlled path a click takes. */
   select(id: string | null, opts?: { source?: GraphActivitySource }): void;
   /** Search results, the selection and counts, for agents and tooling. */
@@ -43,7 +45,7 @@ export interface GraphViewHandleBase {
   positionOf(id: string): [number, number, number] | null;
 }
 
-export interface GraphViewState {
+export interface GraphViewState extends GraphControlsState {
   selected: string | null;
   hovered: string | null;
   focused: string | null;
@@ -101,13 +103,25 @@ export const visuallyHidden: CSSProperties = { position: "absolute", width: 1, h
  * preferences are the kit's.
  */
 export function GraphView(props: GraphViewProps) {
-  const model = useGraphModel(props);
+  const preset = useMemo(() => resolvePreset2D(props.preset), [props.preset]);
+  // The preset's layers, plus any the props add (a cluster source, a background renderer).
+  const hasClusters = props.clusters !== undefined || preset.clusters !== undefined;
+  const hasBackground = !!(props.renderers?.background ?? preset.renderers?.background);
+  const layerSpecs = useMemo<readonly GraphLayerSpec[]>(
+    () =>
+      mergeLayerSpecs(
+        preset.layers ?? DEFAULT_LAYERS,
+        hasClusters ? [{ id: "clusters", label: "Clusters" }] : [],
+        hasBackground ? [{ id: "background", label: "Background" }] : [],
+      ),
+    [preset, hasClusters, hasBackground],
+  );
+  const model = useGraphModel(props, { layers: layerSpecs, linkVisibility: preset.linkVisibility });
   const { graph, limits } = model;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const labelsRef = useRef<HTMLDivElement | null>(null);
   const engineRef = useRef<CanvasEngine | null>(null);
-  const preset = useMemo(() => resolvePreset2D(props.preset), [props.preset]);
   const latest = useRef({ props, model, preset });
   latest.current = { props, model, preset };
 
@@ -117,6 +131,9 @@ export function GraphView(props: GraphViewProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const presetLayout = useMemo(() => preset.layout(presetState), [preset, layoutKey, graph]);
   const layout = props.layout ?? presetLayout;
+  const animated = isAnimatedLayout(layout);
+  const animatedRef = useRef(animated);
+  animatedRef.current = animated;
 
   const options = (): Engine2DOptions => {
     const { props: p, model: m, preset: pr } = latest.current;
@@ -138,11 +155,12 @@ export function GraphView(props: GraphViewProps) {
       },
       nodeSize: p.nodeSize ? (i) => p.nodeSize!(m.graph.nodes[i], i) : undefined,
       labelOf: m.labelOf,
-      linkVisibility: p.linkVisibility ?? pr.linkVisibility ?? "all",
+      linkVisibility: m.linkVisibility,
+      layers: m.layers,
       background: p.background ?? theme.background,
       linkColor: p.linkColor ?? theme.link,
       focusColor: theme.focus,
-      paused: !!p.paused,
+      paused: m.paused,
     };
   };
 
@@ -157,7 +175,9 @@ export function GraphView(props: GraphViewProps) {
       {
         onSelect: (i) => {
           const m = latest.current.model;
-          m.select(i >= 0 ? m.graph.nodes[i].id : null, { source: "user" });
+          const id = i >= 0 ? m.graph.nodes[i].id : null;
+          // A click on the selected node clears it: in a dense view there may be no empty space to click.
+          m.select(id !== null && id === m.selectedId ? null : id, { source: "user" });
         },
         onHover: (i) => {
           const m = latest.current.model;
@@ -195,7 +215,7 @@ export function GraphView(props: GraphViewProps) {
   useLayoutEffect(() => {
     engineRef.current?.setOptions(options());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preset, themeKey, props.renderers, props.clusters, props.clusterLabel, props.nodeColor, props.nodeSize, model.labelOf, props.linkVisibility, props.background, props.linkColor, props.paused]);
+  }, [preset, themeKey, props.renderers, props.clusters, props.clusterLabel, props.nodeColor, props.nodeSize, model.labelOf, model.linkVisibility, model.layers, props.background, props.linkColor, model.paused]);
   useLayoutEffect(() => {
     engineRef.current?.setInteraction(model.selectedIndex, model.hoveredIndex, model.matches, model.focusedIndex, !!props.neighborhood);
   }, [model.selectedIndex, model.hoveredIndex, model.matches, model.focusedIndex, props.neighborhood]);
@@ -244,6 +264,7 @@ export function GraphView(props: GraphViewProps) {
       const m = () => latest.current.model;
       const index = (id: string) => m().graph.index.get(id) ?? -1;
       return {
+        ...controlsHandle(m),
         neighbors: (id) => (m().graph.index.has(id) ? neighborLinks(m().graph, index(id)) : []),
         positionOf: (id) => e()?.positionOf(index(id)) ?? null,
         stepFocus(direction, opts) {
@@ -307,6 +328,7 @@ export function GraphView(props: GraphViewProps) {
             nodeCount: mm.graph.nodes.length,
             linkCount: mm.graph.links.length,
             dropped: { ...mm.graph.dropped },
+            ...controlsState(mm, animatedRef.current),
           };
         },
         get root() {
@@ -333,12 +355,14 @@ export function GraphView(props: GraphViewProps) {
       data-fancy-graph-hovered={model.hoveredId ?? ""}
       data-fancy-graph-focused={model.focusedId ?? ""}
       data-fancy-graph-matches={model.matchIds.length}
+      {...controlsDataset(model)}
     >
       <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={label} data-fancy-graph-canvas="" style={{ display: "block", width: "100%", height: "100%", outline: "none", cursor: "grab" }} />
       <div ref={labelsRef} aria-hidden="true" data-fancy-graph-labels="" style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }} />
       <div aria-live="polite" style={visuallyHidden} data-fancy-graph-announcer="">
         {selectedLabel ? `Selected ${selectedLabel}` : ""}
       </div>
+      {renderControls(props.controls, model, animated)}
     </div>
   );
 }

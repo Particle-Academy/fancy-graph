@@ -96,6 +96,20 @@ describe("entry isolation", () => {
     expect(Object.keys(root)).toEqual(expect.arrayContaining(Object.keys(core)));
   });
 
+  it.each(["src/index.ts", "src/core.ts", "src/worker.ts", "src/three/index.ts"])("%s never reaches react-fancy (only ./controls may)", (entry) => {
+    const { bare } = reachable(entry);
+    expect([...bare].filter((s) => s.startsWith("@particle-academy/react-fancy"))).toEqual([]);
+  });
+
+  it("the ./controls entry is built from react-fancy, and react-fancy is an optional peer", () => {
+    const { bare } = reachable("src/controls/index.ts");
+    expect([...bare].some((s) => s.startsWith("@particle-academy/react-fancy"))).toBe(true);
+    const p = pkg as { peerDependencies?: Record<string, string>; peerDependenciesMeta: Record<string, { optional?: boolean }>; exports: Record<string, unknown> };
+    expect(p.peerDependencies?.["@particle-academy/react-fancy"]).toMatch(/^>=5\.13\.0/);
+    expect(p.peerDependenciesMeta["@particle-academy/react-fancy"].optional).toBe(true);
+    expect(Object.keys(p.exports)).toContain("./controls");
+  });
+
   it("has no three dependency of any kind: 3D comes only through fancy-3d-three, an optional peer", () => {
     type Deps = Record<string, string> | undefined;
     const p = pkg as { dependencies?: Deps; devDependencies?: Deps; peerDependencies?: Deps; optionalDependencies?: Deps; peerDependenciesMeta: Record<string, { optional?: boolean }> };

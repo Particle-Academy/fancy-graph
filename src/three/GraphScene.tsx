@@ -1,6 +1,9 @@
 import { Stage, useStage } from "@particle-academy/fancy-3d-three/react";
 import * as THREE from "@particle-academy/fancy-3d-three/three";
 import { useImperativeHandle, useLayoutEffect, useMemo, useRef, type Ref } from "react";
+import { createPortal } from "react-dom";
+import { DEFAULT_LAYERS, mergeLayerSpecs, type GraphLayerSpec } from "../layers";
+import { controlsDataset, controlsHandle, controlsState, isAnimatedLayout, renderControls } from "../react/controls";
 import type { Camera3D } from "../camera";
 import type { GraphLayout } from "../layout/contract";
 import { applyThemeVars, resolveTheme, typeColorsFor } from "../theme";
@@ -67,10 +70,16 @@ export interface GraphSceneOnStageProps extends GraphScene3DProps {
  */
 export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
   const { stage } = props;
-  const model = useGraphModel(props);
+  const preset = useMemo(() => resolvePreset3D(props.preset), [props.preset]);
+  // Layers own GPU state: a fresh set per preset, and slot-by-slot overrides from the props.
+  const presetLayers = useMemo(() => preset.renderers?.() ?? {}, [preset]);
+  const renderers = useMemo(() => ({ ...presetLayers, ...(props.renderers ?? {}) }), [presetLayers, props.renderers]);
+  const hasClusters = props.clusters !== undefined;
+  // The preset's layers, plus any its renderers (or the props' overrides) fill or tag.
+  const layerSpecs = useMemo(() => mergeLayerSpecs(preset.layers, layersOf(renderers, hasClusters)), [preset, renderers, hasClusters]);
+  const model = useGraphModel(props, { layers: layerSpecs, linkVisibility: preset.linkVisibility });
   const { graph, limits } = model;
   const engineRef = useRef<StageEngine | null>(null);
-  const preset = useMemo(() => resolvePreset3D(props.preset), [props.preset]);
   const latest = useRef({ props, model, preset });
   latest.current = { props, model, preset };
   const presetState = { graph, selected: model.selectedId, focused: model.focusedId };
@@ -78,9 +87,9 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const presetLayout = useMemo(() => preset.layout(presetState), [preset, layoutKey, graph]);
   const layout = props.layout ?? presetLayout;
-  // Layers own GPU state: a fresh set per preset, and slot-by-slot overrides from the props.
-  const presetLayers = useMemo(() => preset.renderers?.() ?? {}, [preset]);
-  const renderers = useMemo(() => ({ ...presetLayers, ...(props.renderers ?? {}) }), [presetLayers, props.renderers]);
+  const animated = isAnimatedLayout(layout);
+  const animatedRef = useRef(animated);
+  animatedRef.current = animated;
   const themeKey = JSON.stringify(props.theme ?? "auto");
 
   const options = (): Engine3DOptions => {
@@ -108,8 +117,9 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
       },
       nodeSize: nodeSize ? (i, meta) => nodeSize(m.graph.nodes[i], i, meta) : undefined,
       labelOf: m.labelOf,
-      linkVisibility: p.linkVisibility ?? pr.linkVisibility ?? "all",
-      paused: !!p.paused,
+      linkVisibility: m.linkVisibility,
+      layers: m.layers,
+      paused: m.paused,
       homeYaw: p.homeYaw ?? pr.homeYaw ?? 0.75,
       homePitch: p.homePitch ?? pr.homePitch ?? 0.55,
     };
@@ -125,7 +135,9 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
       {
         onSelect: (i) => {
           const m = latest.current.model;
-          const id = i >= 0 ? m.graph.nodes[i].id : null;
+          const hit = i >= 0 ? m.graph.nodes[i].id : null;
+          // A click on the selected node clears it: in a dense view (the cosmos) there may be no empty space to click.
+          const id = hit !== null && hit === m.selectedId ? null : hit;
           if (id !== m.selectedId) m.select(id, { source: "user" });
         },
         onHover: (i) => {
@@ -160,7 +172,7 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
   useLayoutEffect(() => {
     engineRef.current?.setOptions(options());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preset, themeKey, props.clusters, props.clusterLabel, props.nodeColor, props.nodeSize, model.labelOf, props.linkVisibility, props.paused, props.homeYaw, props.homePitch, props.applyThemeBackground, stage]);
+  }, [preset, themeKey, props.clusters, props.clusterLabel, props.nodeColor, props.nodeSize, model.labelOf, model.linkVisibility, model.layers, model.paused, props.homeYaw, props.homePitch, props.applyThemeBackground, stage]);
   useLayoutEffect(() => {
     engineRef.current?.setScene(graph, layout, options());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -198,11 +210,12 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
       root.dataset.fancyGraphHovered = model.hoveredId ?? "";
       root.dataset.fancyGraphFocused = model.focusedId ?? "";
       root.dataset.fancyGraphMatches = String(model.matchIds.length);
+      for (const [k, v] of Object.entries(controlsDataset(model))) root.setAttribute(k, v);
     }
     stage.canvas.setAttribute("aria-label", ariaName);
     stage.canvas.setAttribute("role", "img");
     stage.canvas.setAttribute("data-fancy-graph-canvas", "");
-  }, [stage, graph, model.selectedId, model.hoveredId, model.focusedId, model.matchIds, ariaName]);
+  }, [stage, graph, model.selectedId, model.hoveredId, model.focusedId, model.matchIds, ariaName, model.layerStates, model.linkVisibility, model.paused]);
 
   useImperativeHandle(
     props.ref,
@@ -211,6 +224,7 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
       const m = () => latest.current.model;
       const index = (id: string) => m().graph.index.get(id) ?? -1;
       return {
+        ...controlsHandle(m),
         neighbors: (id) => (m().graph.index.has(id) ? neighborLinks(m().graph, index(id)) : []),
         positionOf: (id) => e()?.positionOf(index(id)) ?? null,
         stepFocus(direction, opts) {
@@ -278,6 +292,7 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
             nodeCount: mm.graph.nodes.length,
             linkCount: mm.graph.links.length,
             dropped: { ...mm.graph.dropped },
+            ...controlsState(mm, animatedRef.current),
           };
         },
         get root() {
@@ -288,7 +303,26 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
     [stage],
   );
 
-  return null;
+  // The controls overlay sits in the stage's overlay root, above the canvas: its clicks never reach the picker.
+  const controls = renderControls(props.controls, model, animated);
+  return controls ? createPortal(controls, stage.overlayRoot) : null;
+}
+
+/** Layers for a 3D view whose preset declares none: links and labels, plus whatever slots and tags its renderers fill. */
+function layersOf(renderers: GraphRenderers3D, clusters: boolean): GraphLayerSpec[] {
+  const out: GraphLayerSpec[] = [];
+  const list = (x: GraphRenderers3D[keyof GraphRenderers3D]) => (x === undefined ? [] : Array.isArray(x) ? x : [x]);
+  const seen = new Set<string>();
+  const add = (id: string, label: string) => {
+    if (seen.has(id) || id === "nodes") return;
+    seen.add(id);
+    out.push({ id, label });
+  };
+  if (list(renderers.background).length) add("background", "Background");
+  if (clusters || list(renderers.cluster).length) add("clusters", "Clusters");
+  for (const l of [...list(renderers.background), ...list(renderers.cluster), ...list(renderers.link), ...list(renderers.node)]) if (l.layer) add(l.layer, l.layer);
+  for (const d of DEFAULT_LAYERS) add(d.id, d.label);
+  return out;
 }
 
 /** The 3D graph inside a fancy-3d-three `<Stage>`. Renders nothing in React; it draws into the stage. */

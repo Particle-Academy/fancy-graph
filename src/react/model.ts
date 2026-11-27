@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import { normalizeGraph } from "../graph";
 import { searchNodes } from "../interaction";
+import { DEFAULT_LAYERS, layerMap, resolveLayers, type GraphLayerSpec, type GraphLayerState, type GraphLayerVisibility, type LinkVisibility } from "../layers";
+import type { GraphControlsProps } from "./controls";
 import { resolveLimits, type GraphLimits } from "../limits";
 import type { GraphThemeInput } from "../theme";
 import type { GraphActivity, GraphActivitySource, GraphData, GraphNode, IndexedGraph } from "../types";
@@ -46,10 +48,34 @@ export interface GraphViewBaseProps {
   label?: (node: GraphNode, index: number) => string;
   /** Fly to a node when it becomes selected. 2D defaults to false, 3D to true. */
   flyOnSelect?: boolean;
-  /** `"all"` (default), `"focus"` (only the focus's links while something is focused or searched), or `"none"`. */
-  linkVisibility?: "all" | "focus" | "none";
-  /** Freezes animated layouts (orbits). */
+  /**
+   * `"all"`, `"focus"` (only the focus's links while something is focused or
+   * searched), or `"none"`. Controlled when given; else `defaultLinkVisibility`,
+   * else the preset's, else `"all"`. Switching the `links` layer off overrides it.
+   */
+  linkVisibility?: LinkVisibility;
+  defaultLinkVisibility?: LinkVisibility;
+  onLinkVisibilityChange?: (mode: LinkVisibility, meta: ChangeMeta) => void;
+  /**
+   * Which of the preset's layers are drawn, as JSON: `{ orbits: true, labels: false }`.
+   * Ids are the preset's (`getLayers()` lists them: `links`, `labels`,
+   * `clusters`, `background`, `orbits`, ...); one left out keeps its default.
+   * Controlled when given.
+   */
+  layers?: Partial<GraphLayerVisibility>;
+  defaultLayers?: Partial<GraphLayerVisibility>;
+  /** Gets the full map, one key per declared layer. */
+  onLayersChange?: (layers: GraphLayerVisibility, meta: ChangeMeta) => void;
+  /** Freezes animated layouts (orbits). Controlled when given. */
   paused?: boolean;
+  defaultPaused?: boolean;
+  onPausedChange?: (paused: boolean, meta: ChangeMeta) => void;
+  /**
+   * A view-controls overlay drawn over the view, wired to all of the above and
+   * the selection: pass `GraphViewControls` from
+   * `@particle-academy/fancy-graph/controls`, or your own component. Off by default.
+   */
+  controls?: ComponentType<GraphControlsProps> | null | false;
   /** `"auto"` (default) follows `prefers-reduced-motion`. */
   reducedMotion?: boolean | "auto";
   limits?: Partial<GraphLimits>;
@@ -105,9 +131,26 @@ export interface GraphModel {
   setFocused: (id: string | null, meta: ChangeMeta) => void;
   emit: (type: GraphActivity["type"], id: string | null | undefined, source: GraphActivitySource) => void;
   labelOf: (index: number) => string;
+  /** The declared layers, resolved. */
+  layerStates: GraphLayerState[];
+  /** `{ id: visible }` for every declared layer. */
+  layers: GraphLayerVisibility;
+  /** False for an id the view does not declare. */
+  setLayer: (id: string, visible: boolean, meta: ChangeMeta) => boolean;
+  /** The mode asked for; the `links` layer may still hide them. */
+  linkVisibility: LinkVisibility;
+  setLinkVisibility: (mode: LinkVisibility, meta: ChangeMeta) => void;
+  paused: boolean;
+  setPaused: (paused: boolean, meta: ChangeMeta) => void;
 }
 
-export function useGraphModel(props: GraphViewBaseProps): GraphModel {
+/** What the view (its preset) tells the model: the layers it draws and its default link mode. */
+export interface GraphModelView {
+  layers?: readonly GraphLayerSpec[];
+  linkVisibility?: LinkVisibility;
+}
+
+export function useGraphModel(props: GraphViewBaseProps, view: GraphModelView = {}): GraphModel {
   const limitsKey = JSON.stringify(props.limits ?? {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const limits = useMemo(() => resolveLimits(props.limits), [limitsKey]);
@@ -169,6 +212,54 @@ export function useGraphModel(props: GraphViewBaseProps): GraphModel {
     [graph, labelFn],
   );
 
+  // Layers: a partial map in, the full map out.
+  const specs = view.layers ?? DEFAULT_LAYERS;
+  const [innerLayers, setInnerLayers] = useState<Partial<GraphLayerVisibility>>(() => props.defaultLayers ?? {});
+  const layerInput = props.layers !== undefined ? props.layers : innerLayers;
+  const layerStates = useMemo(() => resolveLayers(specs, layerInput), [specs, layerInput]);
+  const layers = useMemo(() => layerMap(layerStates), [layerStates]);
+  const live = useRef({ props, layers, specs });
+  live.current = { props, layers, specs };
+  const setLayer = useCallback(
+    (id: string, visible: boolean, meta: ChangeMeta) => {
+      const { props: p, layers: cur, specs: sp } = live.current;
+      if (!sp.some((s) => s.id === id) || typeof visible !== "boolean") return false;
+      const next = { ...cur, [id]: visible };
+      // Two calls before a render must both land.
+      live.current.layers = next;
+      if (p.layers === undefined) setInnerLayers(next);
+      p.onLayersChange?.(next, meta);
+      emit("layer", id, meta.source);
+      return true;
+    },
+    [emit],
+  );
+
+  const [innerLinks, setInnerLinks] = useState<LinkVisibility | null>(() => props.defaultLinkVisibility ?? null);
+  const linkVisibility: LinkVisibility = props.linkVisibility ?? innerLinks ?? view.linkVisibility ?? "all";
+  const setLinkVisibility = useCallback(
+    (mode: LinkVisibility, meta: ChangeMeta) => {
+      if (mode !== "all" && mode !== "focus" && mode !== "none") return;
+      const p = live.current.props;
+      if (p.linkVisibility === undefined) setInnerLinks(mode);
+      p.onLinkVisibilityChange?.(mode, meta);
+      emit("links", mode, meta.source);
+    },
+    [emit],
+  );
+
+  const [innerPaused, setInnerPaused] = useState<boolean>(() => !!props.defaultPaused);
+  const paused = props.paused ?? innerPaused;
+  const setPaused = useCallback(
+    (next: boolean, meta: ChangeMeta) => {
+      const p = live.current.props;
+      if (p.paused === undefined) setInnerPaused(!!next);
+      p.onPausedChange?.(!!next, meta);
+      emit("motion", next ? "paused" : "running", meta.source);
+    },
+    [emit],
+  );
+
   return {
     graph,
     limits,
@@ -186,5 +277,12 @@ export function useGraphModel(props: GraphViewBaseProps): GraphModel {
     setFocused,
     emit,
     labelOf,
+    layerStates,
+    layers,
+    setLayer,
+    linkVisibility,
+    setLinkVisibility,
+    paused,
+    setPaused,
   };
 }

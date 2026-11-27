@@ -28,7 +28,9 @@ an optional peer (0.3.0 or later), loaded only by the
 `@particle-academy/fancy-graph/three` entry, and fancy-graph takes three.js only
 through it (`@particle-academy/fancy-3d-three/three`). fancy-graph declares no
 `three` dependency of its own; you install `three` because fancy-3d-three needs
-it. No runtime dependencies.
+it. The optional view-controls overlay (`@particle-academy/fancy-graph/controls`)
+needs `@particle-academy/react-fancy`, likewise an optional peer. No runtime
+dependencies.
 
 ## Usage
 
@@ -76,6 +78,50 @@ labels and neighbourhood mode.
 | **`hierarchy`** (2D): a layered tree for directed links, roots on top.<br>![2D hierarchy](docs/presets/2d-hierarchy.png) | **`clustered`** (2D): a map grouped by node type, a labelled hull per type.<br>![2D clustered](docs/presets/2d-clustered.png) |
 | **`network`** (3D, the default): lit spheres and lines.<br>![3D network](docs/presets/3d-network.png) | **`layered`** (3D): a plane per node type, or per bucket of a date or number field.<br>![3D layered](docs/presets/3d-layered.png) |
 | **`cosmos`** (3D): galaxies per type, stars, orbiting planets, asteroids. The reference example of how far the plug points go.<br>![3D cosmos](docs/presets/3d-cosmos.png) | |
+
+### Selection, layers and the view controls
+
+Click a node to select it; click it again, click empty space, or press Escape
+to clear it. Every preset declares the layers it draws, and each one switches
+on and off through a controlled JSON prop:
+
+| Preset | Layers (id: default) |
+|---|---|
+| 2D `network`, `radial`, `hierarchy`; 3D `network` | `links`, `labels` |
+| 2D `clustered` | `links`, `labels`, `clusters` |
+| 3D `layered` | `links`, `labels`, `clusters` (the planes) |
+| 3D `cosmos` | `background` (sky), `clusters` (galaxies), `orbits` (orbit paths: off), `links`, `labels` |
+
+```tsx
+const [layers, setLayers] = useState({ orbits: true });
+
+<GraphView3D
+  data={data}
+  preset="cosmos"
+  layers={layers}                       // partial: unlisted layers keep their default
+  onLayersChange={setLayers}            // gets the full map
+  linkVisibility={mode}                 // "all" | "focus" | "none"; cosmos defaults to "focus"
+  onLinkVisibilityChange={setMode}
+  paused={paused}                       // freezes the orbits
+  onPausedChange={setPaused}
+/>;
+```
+
+Each also has an uncontrolled `default*` form. For a ready-made overlay (clear
+the selection, a switch per layer, all links or the selection's only, motion),
+pass `GraphViewControls`:
+
+```tsx
+import { GraphViewControls } from "@particle-academy/fancy-graph/controls";
+
+<GraphView3D data={data} preset="cosmos" controls={GraphViewControls} />;
+```
+
+It is built from react-fancy, an optional peer used only by the `/controls`
+entry, so it needs `@particle-academy/react-fancy` installed and its styles
+set up as for any react-fancy component. It is off unless you pass it. Any
+component taking `GraphControlsProps` works the same way, or leave `controls`
+off and drive the props yourself.
 
 Each built-in has a factory for its options: `networkPreset`, `radialPreset`,
 `hierarchyPreset`, `clusteredPreset` (2D) and `network3DPreset`,

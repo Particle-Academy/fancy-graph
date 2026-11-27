@@ -32,5 +32,6 @@ export {
   type GraphPreset3DId,
 } from "./presets/presets3d";
 export { ASTEROID, PLANET, STAR, cosmosLayout, spiralPoint, type BodyKind, type CosmosBody, type CosmosGalaxy, type CosmosLayoutOptions, type CosmosMeta } from "./presets/cosmos-layout";
-export { cosmosDefaults, cosmosRenderers, type CosmosRenderOptions } from "./presets/cosmos-renderers";
+export { cosmosDefaults, cosmosLayers, cosmosOrbits, cosmosRenderers, type CosmosOrbitOptions, type CosmosRenderOptions } from "./presets/cosmos-renderers";
+export type { GraphControlsProps } from "../react/controls";
 export { layeredLayout, layerPlanes, type LayerBy, type LayeredLayoutOptions } from "./presets/layered";

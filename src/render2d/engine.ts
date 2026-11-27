@@ -2,6 +2,7 @@ import { clampCamera2D, fitCamera2D, lerpCamera2D, zoomAt2D, type Camera2D } fro
 import { groupClusters } from "../clusters";
 import { colorFor } from "../color";
 import { computeLinkStates, computeNodeStates, focusOf, hasHighlightRing, LINK_ACTIVE, LINK_DIMMED, NODE_ACTIVE, NODE_DIMMED, pickScreen } from "../interaction";
+import { effectiveLinkVisibility, isLayerVisible } from "../layers";
 import { LabelLayer, labelCandidates, placeLabels, type ClusterLabel, type PlacedLabel } from "../labels";
 import { createLayoutRunner, type GraphLayout, type LayoutRunner } from "../layout/contract";
 import { truncateLabel, type GraphLimits } from "../limits";
@@ -18,6 +19,8 @@ export interface Engine2DOptions {
   nodeSize?: (index: number) => number;
   labelOf: (index: number) => string;
   linkVisibility: "all" | "focus" | "none";
+  /** Layer visibility by id (`links`, `labels`, `clusters`, `background`); a missing id is visible. */
+  layers?: Partial<Record<string, boolean>>;
   background?: string;
   linkColor: string;
   /** Focus ring colour. Defaults to --fancy-focus, else blue. */
@@ -145,6 +148,8 @@ export class CanvasEngine {
   }
 
   setInteraction(selected: number, hovered: number, matches: Set<number> | null, focused = -1, neighborhood = false) {
+    // Clearing the selection lets go of the node the camera was following because it was selected.
+    if (selected < 0 && this.selected >= 0 && this.follow === this.selected) this.follow = -1;
     this.selected = selected;
     this.hovered = hovered;
     this.matches = matches;
@@ -369,9 +374,9 @@ export class CanvasEngine {
       ctx.fillStyle = this.opts.background;
       ctx.fillRect(0, 0, W, H);
     }
-    R.background?.(ctx, { width: W, height: H, camera: { ...cam }, time, pixelRatio: dpr, meta });
+    if (isLayerVisible(this.opts.layers, "background")) R.background?.(ctx, { width: W, height: H, camera: { ...cam }, time, pixelRatio: dpr, meta });
 
-    for (const c of this.clusterCache) {
+    for (const c of isLayerVisible(this.opts.layers, "clusters") ? this.clusterCache : []) {
       const x = (c.center[0] - cam.x) * cam.zoom + W / 2;
       const y = (c.center[1] - cam.y) * cam.zoom + H / 2;
       const radius = c.radius * cam.zoom;
@@ -391,7 +396,7 @@ export class CanvasEngine {
       }
     }
 
-    const vis = this.opts.linkVisibility;
+    const vis = effectiveLinkVisibility(this.opts.linkVisibility, isLayerVisible(this.opts.layers, "links"));
     const anyFocus = focusOf({ selected: this.selected, hovered: this.hovered, focused: this.focused, neighborhood: this.neighborhood }) >= 0 || !!this.matches;
     if (vis !== "none") {
       const s = this.screen;
@@ -485,10 +490,10 @@ export class CanvasEngine {
       const st = this.states[l.index];
       l.state = st === NODE_ACTIVE ? "active" : st === 2 ? "neighbor" : "normal";
     }
-    this.labels.render(placed);
+    this.labels.render(isLayerVisible(this.opts.layers, "labels") ? placed : []);
     const cl: ClusterLabel[] = [];
     const cam = this.camera;
-    for (const c of this.clusterCache) {
+    for (const c of isLayerVisible(this.opts.layers, "clusters") ? this.clusterCache : []) {
       const text = this.opts.clusterLabel ? this.opts.clusterLabel(c) : (c.label ?? null);
       if (!text) continue;
       const radius = c.radius * cam.zoom;

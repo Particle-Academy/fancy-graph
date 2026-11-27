@@ -3,6 +3,7 @@ import { orbitFrom, orbitPosition, type Camera3D } from "../camera";
 import { groupClusters } from "../clusters";
 import { colorFor, parseColor } from "../color";
 import { computeLinkStates, computeNodeStates, focusOf, NODE_ACTIVE, NODE_NEIGHBOR, pickScreen } from "../interaction";
+import { effectiveLinkVisibility, isLayerVisible } from "../layers";
 import { LabelLayer, labelCandidates, placeLabels, type ClusterLabel } from "../labels";
 import { createLayoutRunner, type GraphLayout, type LayoutRunner } from "../layout/contract";
 import { truncateLabel, type GraphLimits } from "../limits";
@@ -20,6 +21,8 @@ export interface Engine3DOptions {
   nodeSize?: (index: number, meta: unknown) => number;
   labelOf: (index: number) => string;
   linkVisibility: "all" | "focus" | "none";
+  /** Layer visibility by id; a missing id is visible. */
+  layers?: Partial<Record<string, boolean>>;
   paused: boolean;
   /** Where the home view looks from (radians). */
   homeYaw: number;
@@ -83,6 +86,9 @@ class Orbit {
   }
 }
 
+/** A layer's default visibility id, by slot (background, cluster, link, node). */
+const SLOT_LAYER = ["background", "clusters", "links", "nodes"] as const;
+
 const asList = (x: GraphLayer3D | GraphLayer3D[] | undefined, fallback: () => GraphLayer3D[]) => (x === undefined ? fallback() : Array.isArray(x) ? x : [x]);
 
 /** The 3D renderer: drives a fancy-3d-three Stage's scene, camera and controls. */
@@ -93,7 +99,7 @@ export class StageEngine {
   private labelRoot: HTMLDivElement;
   private graph: IndexedGraph | null = null;
   private runner: LayoutRunner | null = null;
-  private layers: GraphLayer3D[] = [];
+  private layers: { layer: GraphLayer3D; id: string; group: THREE.Group }[] = [];
   private screen = new Float32Array(0);
   private depths = new Float32Array(0);
   private order = new Uint32Array(0);
@@ -199,6 +205,7 @@ export class StageEngine {
     this.runner?.setPaused(opts.paused);
     this.refreshStyle();
     if (layersChanged) this.remountLayers();
+    else this.applyLayerVisibility();
   }
 
   setLimits(limits: GraphLimits) {
@@ -214,6 +221,8 @@ export class StageEngine {
   }
 
   setInteraction(selected: number, hovered: number, matches: Set<number> | null, focused = -1, neighborhood = false) {
+    // Clearing the selection lets go of the node the camera was following because it was selected.
+    if (selected < 0 && this.selected >= 0 && this.follow === this.selected) this.follow = -1;
     this.selected = selected;
     this.hovered = hovered;
     this.matches = matches;
@@ -287,19 +296,40 @@ export class StageEngine {
     this.cb.onCamera(this.getCamera());
   }
 
-  private remountLayers() {
-    for (const l of this.layers) l.dispose();
+  private disposeLayers() {
+    for (const l of this.layers) {
+      l.layer.dispose();
+      this.group.remove(l.group);
+    }
     this.layers = [];
+  }
+
+  private remountLayers() {
+    this.disposeLayers();
     const g = this.graph;
     if (!g) return;
     const R = this.opts.renderers;
     const slots: GraphLayer3D[][] = [asList(R.background, () => []), asList(R.cluster, () => []), asList(R.link, () => [linkLayer3D()]), asList(R.node, () => [nodeLayer3D()])];
     slots.forEach((list, order) => {
       for (const layer of list) {
-        layer.mount({ group: this.group, renderOrder: order, graph: g, meta: this.runner?.meta, clusters: this.clusterCache, camera: this.stage.camera, colors: this.colors });
-        this.layers.push(layer);
+        // One group per layer, so hiding one (the orbit paths) never hides its slot-mates (the galaxies).
+        const group = new THREE.Group();
+        const id = layer.layer ?? SLOT_LAYER[order];
+        group.name = `fancy-graph-layer-${id}`;
+        this.group.add(group);
+        layer.mount({ group, renderOrder: order, graph: g, meta: this.runner?.meta, clusters: this.clusterCache, camera: this.stage.camera, colors: this.colors });
+        this.layers.push({ layer, id, group });
       }
     });
+    this.applyLayerVisibility();
+  }
+
+  private visible(id: string) {
+    return id === "nodes" || isLayerVisible(this.opts.layers, id);
+  }
+
+  private applyLayerVisibility() {
+    for (const l of this.layers) l.group.visible = this.visible(l.id);
   }
 
   private refreshStyle() {
@@ -578,9 +608,9 @@ export class StageEngine {
       selected: this.selected,
       hovered: this.hovered,
       matches: this.matches,
-      linkVisibility: this.opts.linkVisibility,
+      linkVisibility: effectiveLinkVisibility(this.opts.linkVisibility, this.visible("links")),
     };
-    for (const layer of this.layers) layer.update(frame);
+    for (const l of this.layers) if (l.group.visible) l.layer.update(frame);
     this.paintLabels(g, W, H, view, f);
     return { ms: performance.now() - t0 };
   }
@@ -607,9 +637,9 @@ export class StageEngine {
       const st = this.states[l.index];
       l.state = st === NODE_ACTIVE ? "active" : st === NODE_NEIGHBOR ? "neighbor" : "normal";
     }
-    this.labels.render(placed);
+    this.labels.render(this.visible("labels") ? placed : []);
     const cl: ClusterLabel[] = [];
-    for (const c of this.clusterCache) {
+    for (const c of this.visible("clusters") ? this.clusterCache : []) {
       const text = this.opts.clusterLabel ? this.opts.clusterLabel(c) : (c.label ?? null);
       if (!text) continue;
       const [cx, cy, cz] = c.center;
@@ -722,8 +752,7 @@ export class StageEngine {
 
   destroy() {
     this.stop();
-    for (const l of this.layers) l.dispose();
-    this.layers = [];
+    this.disposeLayers();
     this.runner?.dispose();
     this.stage.scene.remove(this.group);
     this.labels.dispose();

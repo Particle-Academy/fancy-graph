@@ -10,6 +10,7 @@ import { GRAPH_PRESETS_3D, GraphView3D, type GraphScene3DHandle } from "../../sr
 import { COSMOS_COLORS, cosmosData } from "../../examples/cosmos/data";
 import { cosmosLayout } from "../../examples/cosmos/layout";
 import { cosmosProps, cosmosRenderers } from "../../examples/cosmos/renderers";
+import { GraphViewControls } from "../../src/controls/index";
 
 type Handle = GraphViewHandle | GraphScene3DHandle;
 
@@ -137,6 +138,17 @@ const harness = {
     return handle!.getState();
   },
   presets: () => ({ "2d": Object.keys(GRAPH_PRESETS_2D), "3d": Object.keys(GRAPH_PRESETS_3D) }),
+  /** The cosmos preset as the owner used it, with orbit paths on and the view-controls overlay. */
+  async mountCosmosControls(selected: string) {
+    reset();
+    host().style.background = "#02030a";
+    const { nodes, links } = cosmosData(650, 900, 1);
+    const ref = createRef<GraphScene3DHandle>();
+    root!.render(<GraphView3D ref={ref} data={{ nodes, links }} preset="cosmos" theme={{ base: "dark", typeColors: COSMOS_COLORS }} defaultSelected={selected} defaultLayers={{ orbits: true }} flyOnSelect={false} reducedMotion controls={GraphViewControls} style={{ width: "100%", height: "100%" }} aria-label="Cosmos with controls" />);
+    await waitFrames(60);
+    handle = ref.current;
+    return handle!.getState();
+  },
   async mount2d(opts: MountOptions) {
     reset();
     const { nodes, links } = cosmosData(opts.nodes, opts.links, 1);

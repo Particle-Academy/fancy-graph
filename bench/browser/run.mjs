@@ -158,9 +158,43 @@ await page.mouse.click(clickTarget.x, clickTarget.y);
 await page.evaluate(() => window.harness.waitFrames(5));
 const clicked = await page.evaluate(() => document.querySelector("[data-fancy-graph]")?.getAttribute("data-fancy-graph-selected"));
 
+// Deselect and layer toggles on the cosmos, through real clicks (owner report, 2026-11-27).
+phase = "3D cosmos controls";
+await page.evaluate(() => window.harness.mountCosmosControls("agent-0"));
+const attr = (name) => page.evaluate((n) => document.querySelector("[data-fancy-graph]")?.getAttribute(n), name);
+const cosmosControls = { orbitRings: await page.evaluate(() => window.harness.handle().getState().layers.orbits) };
+await shot({ path: join(shots, "3d-cosmos-orbits-controls.png") });
+// Clicking the selected star again clears it.
+const star = await page.evaluate(() => window.harness.handle().screenPosition("agent-0"));
+await page.mouse.click(star.x, star.y);
+await page.evaluate(() => window.harness.waitFrames(5));
+cosmosControls.afterReclick = await attr("data-fancy-graph-selected");
+await page.mouse.click(star.x, star.y);
+await page.evaluate(() => window.harness.waitFrames(5));
+cosmosControls.afterClick = await attr("data-fancy-graph-selected");
+// The overlay's clear button.
+await page.click('[data-fancy-graph-control="clear-selection"]');
+await page.evaluate(() => window.harness.waitFrames(5));
+cosmosControls.afterClear = await attr("data-fancy-graph-selected");
+// Open the panel and switch the orbit paths off, then the links on for everything.
+await page.click('[data-fancy-graph-control="panel"]');
+await page.click('[data-fancy-graph-layer="orbits"] [role="switch"]');
+await page.click('[data-fancy-graph-control="link-visibility"] button:has-text("All")');
+await page.evaluate(() => window.harness.waitFrames(10));
+cosmosControls.layers = await attr("data-fancy-graph-layers");
+cosmosControls.linkVisibility = await attr("data-fancy-graph-link-visibility");
+await shot({ path: join(shots, "3d-cosmos-controls-all-links.png") });
+const controlsOk =
+  cosmosControls.orbitRings === true &&
+  cosmosControls.afterReclick === "" &&
+  cosmosControls.afterClick === "agent-0" &&
+  cosmosControls.afterClear === "" &&
+  cosmosControls.layers === "background clusters links labels" &&
+  cosmosControls.linkVisibility === "all";
+
 await browser.close();
 
-results.checks = { labels2dVisible: labels2d, selected3d: picked, handles3d, clicked2d: clicked, gamepad, gallery };
+results.checks = { labels2dVisible: labels2d, selected3d: picked, handles3d, clicked2d: clicked, gamepad, gallery, cosmosControls };
 results.console = consoleLog;
 mkdirSync(join(here, "..", "results"), { recursive: true });
 writeFileSync(join(here, "..", "results", `frame-times-${profile}.json`), JSON.stringify(results, null, 2) + "\n");
@@ -171,8 +205,8 @@ console.log(JSON.stringify({ checks: results.checks, console: consoleLog }, null
 // profile is the check, and any warning at all fails it.
 const driverNote = (m) => profile === "software" && m.type === "warning" && /^\[\.WebGL-[^\]]+\]GL Driver Message \(OpenGL, Performance/.test(m.text);
 const bad = consoleLog.filter((m) => (m.type === "error" || m.type === "pageerror" || m.type === "warning") && !driverNote(m));
-if (bad.length || clicked !== "agent-0" || picked !== "agent-0") {
-  console.error(`FAILED: ${bad.length} console errors/warnings, clicked=${clicked}, picked=${picked}`);
+if (bad.length || clicked !== "agent-0" || picked !== "agent-0" || !controlsOk) {
+  console.error(`FAILED: ${bad.length} console errors/warnings, clicked=${clicked}, picked=${picked}, cosmosControls=${JSON.stringify(cosmosControls)}`);
   process.exit(1);
 }
 console.log("OK");

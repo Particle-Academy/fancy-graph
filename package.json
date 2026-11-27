@@ -56,6 +56,16 @@
         "types": "./dist/three.d.cts",
         "default": "./dist/three.cjs"
       }
+    },
+    "./controls": {
+      "import": {
+        "types": "./dist/controls.d.ts",
+        "default": "./dist/controls.js"
+      },
+      "require": {
+        "types": "./dist/controls.d.cts",
+        "default": "./dist/controls.cjs"
+      }
     }
   },
   "files": [
@@ -88,17 +98,22 @@
   ],
   "peerDependencies": {
     "@particle-academy/fancy-3d-three": ">=0.3.0 <2.0",
+    "@particle-academy/react-fancy": ">=5.13.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "peerDependenciesMeta": {
     "@particle-academy/fancy-3d-three": {
       "optional": true
+    },
+    "@particle-academy/react-fancy": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@particle-academy/fancy-3d": "^0.5.0",
     "@particle-academy/fancy-3d-three": "^0.3.0",
+    "@particle-academy/react-fancy": "^6.30.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@types/three": "^0.184.1",

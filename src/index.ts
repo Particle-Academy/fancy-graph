@@ -10,6 +10,7 @@
 export type { GraphActivity, GraphActivitySource, GraphCluster, GraphData, GraphLink, GraphNode, IndexedGraph, IndexedLink, Vec3 } from "./types";
 export { DEFAULT_LIMITS, resolveLimits, truncateLabel, type GraphLimits } from "./limits";
 export { normalizeGraph } from "./graph";
+export { DEFAULT_LAYERS, effectiveLinkVisibility, isLayerVisible, layerMap, mergeLayerSpecs, resolveLayers, type GraphLayerSpec, type GraphLayerState, type GraphLayerVisibility, type LinkVisibility } from "./layers";
 export { hash01, seeded } from "./random";
 export {
   computeLinkStates,
@@ -67,7 +68,8 @@ export {
 export { colorFor, parseColor, DEFAULT_PALETTE } from "./color";
 export { DARK_THEME, LIGHT_THEME, applyThemeVars, cssVar, resolveTheme, assignTypeColors, typeColor, typeColorsFor, type GraphTheme, type GraphThemeInput } from "./theme";
 export { GraphView, type GraphViewHandle, type GraphViewHandleBase, type GraphViewProps, type GraphViewState } from "./react/GraphView";
-export { useGraphModel, useReducedMotion, type ChangeMeta, type GraphModel, type GraphViewBaseProps } from "./react/model";
+export { useGraphModel, useReducedMotion, type ChangeMeta, type GraphModel, type GraphModelView, type GraphViewBaseProps } from "./react/model";
+export type { GraphControlsHandle, GraphControlsProps, GraphControlsState } from "./react/controls";
 export type { ClusterSource } from "./render2d/engine";
 export {
   GRAPH_PRESETS_2D,

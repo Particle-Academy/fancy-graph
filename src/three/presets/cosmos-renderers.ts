@@ -8,8 +8,10 @@
 import { LINK_ACTIVE, LINK_DIMMED, NODE_ACTIVE, NODE_DIMMED } from "../../interaction";
 import { seeded } from "../../random";
 import type { GraphCluster, GraphNode } from "../../types";
-import { createInstancedLayer, createPointsLayer, linkLayer3D, ringState } from "../layers";
-import type { GraphRenderers3D, LayerFrame3D } from "../types";
+import * as THREE from "@particle-academy/fancy-3d-three/three";
+import type { GraphLayerSpec } from "../../layers";
+import { createInstancedLayer, createLayerMaterial, createPointsLayer, linkLayer3D, ringState } from "../layers";
+import type { GraphLayer3D, GraphRenderers3D, LayerContext3D, LayerFrame3D } from "../types";
 import { spiralPoint, type CosmosMeta } from "./cosmos-layout";
 
 const NOISE = /* glsl */ `
@@ -148,6 +150,8 @@ void main(){ float d = length(gl_PointCoord - .5) * 2.; if (d > 1.) discard; o =
 export interface CosmosRenderOptions {
   /** Stars in the sky. Default 6500. */
   skyStars?: number;
+  /** The orbit-path rings (the `orbits` layer). */
+  orbits?: CosmosOrbitOptions;
 }
 
 /** A galaxy takes its members' colour, so it follows the theme's per-type colours. */
@@ -248,7 +252,118 @@ export function cosmosRenderers(options: CosmosRenderOptions = {}): GraphRendere
     },
   });
 
-  return { background: [sky, dust], cluster: galaxies, link: links, node: bodies };
+  return { background: [sky, dust], cluster: [galaxies, cosmosOrbits(options.orbits)], link: links, node: bodies };
+}
+
+const ORBIT_VS = /* glsl */ `
+in vec3 position; in vec4 aColor; uniform mat4 viewMatrix, projectionMatrix; out vec4 vColor;
+void main(){ vColor = aColor; gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.); }`;
+const ORBIT_FS = /* glsl */ `
+precision mediump float; in vec4 vColor; out vec4 o; void main(){ o = vec4(vColor.rgb * vColor.a, 0.); }`;
+
+export interface CosmosOrbitOptions {
+  /** Line segments per orbit ring. Default 48. */
+  segments?: number;
+  /** Ring opacity: normal, highlighted (the selection's, its neighbours'), dimmed. */
+  alpha?: { normal?: number; active?: number; dimmed?: number };
+}
+
+/**
+ * The cosmos's orbit paths: one faint ring per planet and asteroid around the
+ * star it circles, in the body's own colour, brighter for the highlighted
+ * bodies. Tagged `layer: "orbits"`, so `layers={{ orbits: true }}` shows it;
+ * the cosmos preset declares it hidden by default. Stars sit still, so the
+ * rings are built once and only their opacity changes.
+ */
+export function cosmosOrbits(options: CosmosOrbitOptions = {}): GraphLayer3D {
+  const seg = Math.max(8, Math.min(256, Math.floor(options.segments ?? 48)));
+  const aNormal = options.alpha?.normal ?? 0.12;
+  const aActive = options.alpha?.active ?? 0.5;
+  const aDimmed = options.alpha?.dimmed ?? 0.03;
+  let lines: THREE.LineSegments | null = null;
+  let mat: ReturnType<typeof createLayerMaterial> | null = null;
+  let ctx: LayerContext3D | null = null;
+  let owners: number[] = [];
+  let key = "";
+  return {
+    layer: "orbits",
+    mount(c) {
+      ctx = c;
+      const bodies = (c.meta as CosmosMeta | undefined)?.bodies ?? [];
+      owners = [];
+      bodies.forEach((b, i) => {
+        if (b.parent >= 0 && bodies[b.parent]) owners.push(i);
+      });
+      const verts = Math.max(1, owners.length * seg * 2);
+      const pos = new Float32Array(verts * 3);
+      const col = new Float32Array(verts * 4);
+      let v = 0;
+      for (const i of owners) {
+        const b = bodies[i];
+        const o = bodies[b.parent].home;
+        for (let k = 0; k < seg; k++) {
+          for (const step of [k, k + 1]) {
+            const a = (step / seg) * Math.PI * 2;
+            const x = Math.cos(a) * b.orbitRadius, y = Math.sin(a) * b.orbitRadius;
+            pos[v * 3] = o[0] + b.orbitU[0] * x + b.orbitV[0] * y;
+            pos[v * 3 + 1] = o[1] + b.orbitU[1] * x + b.orbitV[1] * y;
+            pos[v * 3 + 2] = o[2] + b.orbitU[2] * x + b.orbitV[2] * y;
+            col[v * 4] = c.colors[i * 3] ?? 0.6;
+            col[v * 4 + 1] = c.colors[i * 3 + 1] ?? 0.6;
+            col[v * 4 + 2] = c.colors[i * 3 + 2] ?? 0.6;
+            col[v * 4 + 3] = aNormal;
+            v++;
+          }
+        }
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      const colour = new THREE.BufferAttribute(col, 4);
+      colour.setUsage(THREE.DynamicDrawUsage);
+      geo.setAttribute("aColor", colour);
+      geo.setDrawRange(0, v);
+      mat = createLayerMaterial({ vertexShader: ORBIT_VS, fragmentShader: ORBIT_FS, blending: "premultiplied" });
+      lines = new THREE.LineSegments(geo, mat);
+      lines.name = "cosmos-orbits";
+      lines.frustumCulled = false;
+      lines.renderOrder = c.renderOrder;
+      c.group.add(lines);
+      key = "";
+    },
+    update(f) {
+      if (!lines) return;
+      const next = `${f.selected},${f.hovered},${f.focused},${f.matches?.size ?? 0},${f.focus}`;
+      if (next === key) return;
+      key = next;
+      const attr = lines.geometry.getAttribute("aColor") as THREE.BufferAttribute;
+      const col = attr.array as Float32Array;
+      const per = seg * 2;
+      owners.forEach((i, r) => {
+        const st = f.states[i];
+        const a = st === NODE_ACTIVE ? aActive : st === NODE_DIMMED ? aDimmed : aNormal;
+        for (let k = 0; k < per; k++) col[(r * per + k) * 4 + 3] = a;
+      });
+      attr.needsUpdate = true;
+    },
+    dispose() {
+      if (lines && ctx) ctx.group.remove(lines);
+      lines?.geometry.dispose();
+      mat?.dispose();
+      lines = null;
+      mat = null;
+    },
+  };
+}
+
+/** The layers the cosmos draws. Orbit paths start hidden, so the default look is the one 0.1.0 shipped. */
+export function cosmosLayers(): GraphLayerSpec[] {
+  return [
+    { id: "background", label: "Sky" },
+    { id: "clusters", label: "Galaxies" },
+    { id: "orbits", label: "Orbit paths", visible: false },
+    { id: "links", label: "Links" },
+    { id: "labels", label: "Labels" },
+  ];
 }
 
 /** The cosmos defaults beside its layout and look: body sizes from the layout, galaxy labels with counts, links shown for the focus only. */

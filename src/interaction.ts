@@ -98,7 +98,12 @@ export function searchNodes(graph: IndexedGraph, query: string, opts: SearchOpti
 export interface PickOptions {
   /** Minimum reach in px. */
   minReach: number;
-  /** `"depth"` (3D, default): nearest to the camera wins. `"nearest"` (2D): nearest centre wins. */
+  /**
+   * `"depth"` (3D, default): of the nodes under the pointer, the nearest to the
+   * camera wins; a node only within `minReach` (a near miss) counts only when
+   * nothing is directly under it, and then the nearest on screen wins.
+   * `"nearest"` (2D): nearest centre wins.
+   */
   mode?: "depth" | "nearest";
 }
 
@@ -110,22 +115,33 @@ export function pickScreen(screen: Float32Array, x: number, y: number, opts: Pic
   const byDepth = (opts.mode ?? "depth") === "depth";
   let best = -1;
   let bestScore = Infinity;
+  // Depth mode: in a crowd, a tiny body a few px off but in front must not steal a click aimed dead at another.
+  let near = -1;
+  let nearD2 = Infinity;
   const n = screen.length >> 2;
   for (let i = 0; i < n; i++) {
     const depth = screen[i * 4 + 3];
     if (depth <= 0) continue;
     const dx = screen[i * 4] - x;
     const dy = screen[i * 4 + 1] - y;
-    const reach = Math.max(opts.minReach, screen[i * 4 + 2] + 2);
+    const hit = screen[i * 4 + 2] + 2;
+    const reach = Math.max(opts.minReach, hit);
     const d2 = dx * dx + dy * dy;
     if (d2 > reach * reach) continue;
+    if (byDepth && d2 > hit * hit) {
+      if (d2 <= nearD2) {
+        nearD2 = d2;
+        near = i;
+      }
+      continue;
+    }
     const score = byDepth ? depth : d2;
     if (score <= bestScore) {
       bestScore = score;
       best = i;
     }
   }
-  return best;
+  return best >= 0 ? best : near;
 }
 
 export interface NeighborLink {

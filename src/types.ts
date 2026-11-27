@@ -91,7 +91,12 @@ export interface GraphCluster {
 export type GraphActivitySource = "user" | "agent" | "api";
 
 export interface GraphActivity {
-  type: "select" | "hover" | "focus" | "camera" | "search";
+  /**
+   * `"layer"`: a layer was switched (`id` is the layer's id). `"links"`: the
+   * link visibility mode changed (`id` is the mode). `"motion"`: animation was
+   * paused or resumed (`id` is `"paused"` or `"running"`).
+   */
+  type: "select" | "hover" | "focus" | "camera" | "search" | "layer" | "links" | "motion";
   id?: string | null;
   source: GraphActivitySource;
   at: number;

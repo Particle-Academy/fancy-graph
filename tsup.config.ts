@@ -6,6 +6,8 @@ export default defineConfig({
     core: "src/core.ts",
     worker: "src/worker.ts",
     three: "src/three/index.ts",
+    // react-fancy is an OPTIONAL peer too, and only this entry may import it.
+    controls: "src/controls/index.ts",
   },
   format: ["esm", "cjs"],
   dts: true,

@@ -8,7 +8,7 @@ works in this repo.
 ## Build and test
 
 ```bash
-npm run build   # tsup: index, core, worker, three
+npm run build   # tsup: index, core, worker, three, controls
 npm run lint    # tsc --noEmit (src, tests, examples, bench) && eslint .
 npm test        # vitest run
 npm run bench   # layout timings in Node -> bench/results/layout-times.json
@@ -43,6 +43,15 @@ by hand-typing a figure you did not measure.
   dependency of any kind (owner, 2026-11-26). `tests/entry-isolation.test.ts`
   walks the import graphs and scans every file to hold both. `@types/three`
   stays a devDependency because the re-export's declarations need it.
+- `src/controls/` is the only code that may import `@particle-academy/react-fancy`
+  (an optional peer, the `./controls` entry). The controls contract
+  (`GraphControlsProps`, the slot that renders it) is in `src/react/controls.ts`
+  and imports no react-fancy, so the core and `./three` entries never pull it in;
+  `tests/entry-isolation.test.ts` holds that.
+- Layer visibility (`src/layers.ts`) is headless. A preset declares its layers;
+  the 2D engine checks ids where it draws, the 3D engine gives every layer its
+  own group and hides that group (and skips its `update`). A new drawn part
+  gets an id and a `GraphLayerSpec` in the presets that draw it.
 - `src/presets/` (2D) and `src/three/presets/` (3D) hold the built-in views.
   Each is only a layout plus renderers plus defaults, built on the public plug
   points; the cosmos lives there too and is the reference example. A new preset

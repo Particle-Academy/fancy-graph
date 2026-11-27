@@ -36,6 +36,7 @@ key; MCP id `fancy-ui`). Search it for "graph" (`search-components`), then use
 | `@particle-academy/fancy-graph/core` | Headless only, no React: `normalizeGraph`, layouts, search, picking, labels, camera maths |
 | `@particle-academy/fancy-graph/worker` | The layout Worker module (for `workerLayout`) |
 | `@particle-academy/fancy-graph/three` | `<GraphView3D>`, `<GraphScene3D>` (inside your own fancy-3d-three `<Stage>`), 3D layer builders. Custom layers should import three's classes from `@particle-academy/fancy-3d-three/three` too |
+| `@particle-academy/fancy-graph/controls` | `<GraphViewControls>`, the optional view-controls overlay, built from react-fancy (an optional peer, needed only here) |
 
 ## Data
 
@@ -108,14 +109,43 @@ carries `data-fancy-graph-preset` and `data-fancy-graph-theme`.
   layers (`{ mount, update, dispose }`); `createInstancedLayer` takes your GLSL 3
   shaders and writes instances back to front every frame, with `"additive"` or
   `"premultiplied"` blending; `createPointsLayer`, `nodeLayer3D`, `linkLayer3D`.
-- **Handle** (`ref`): `select`, `flyTo`, `fit`, `reset`, `getCamera`,
-  `setCamera`, `screenPosition`, `pick`, `getState`, `getClusters`,
-  `renderFrame`, plus the gamepad API below. 3D adds `flyToCluster`,
-  `flyToPoint`, `follow`.
+- **Deselect:** a click on the selected node clears it, as do a click on empty
+  space, Escape, `select(null)` / `clearSelection()` on the handle, and the
+  overlay's clear button. Clearing also stops the camera following that node.
+- **Layers, controlled JSON:** `layers` / `defaultLayers` / `onLayersChange`
+  over the preset's declared layers (`getLayers()` lists them, with labels and
+  state). In: a partial map, `{ orbits: true, labels: false }`; out: the full
+  map. Built-in ids: `links`, `labels`, `clusters`, `background`, `orbits`
+  (cosmos only, off by default). A preset declares them in `layers:
+  GraphLayerSpec[]`; a custom 3D layer joins one with `layer: "<id>"`, else it
+  belongs to its slot. `links: false` hides links whatever the mode.
+- **Link mode and motion are controllable too:** `linkVisibility` /
+  `defaultLinkVisibility` / `onLinkVisibilityChange` (`"all"`, `"focus"`,
+  `"none"`; the preset's default otherwise, cosmos `"focus"`), and `paused` /
+  `defaultPaused` / `onPausedChange` (freezes animated layouts such as the
+  cosmos's orbits). Activity events: `layer` (id = layer id), `links` (id =
+  mode), `motion` (id = `paused` / `running`).
+- **View-controls overlay, opt-in:** `controls={GraphViewControls}` from
+  `/controls`, or any component taking `GraphControlsProps` (`selected`,
+  `selectedLabel`, `onClearSelection`, `layers`, `onLayerChange`,
+  `linkVisibility`, `onLinkVisibilityChange`, `animated`, `paused`,
+  `onPausedChange`). The view wires every prop. Handles:
+  `[data-fancy-graph-controls]`, `[data-fancy-graph-control="clear-selection" | "panel" | "layer" | "link-visibility" | "motion"]`,
+  and `[data-fancy-graph-layer="<id>"]` on each layer switch. Options:
+  `position`, `defaultOpen`, `labels` (every string). Your own component needs
+  `pointer-events: auto`; the slot it sits in passes clicks through to the view.
+- **Handle** (`ref`): `select`, `clearSelection`, `flyTo`, `fit`, `reset`,
+  `getCamera`, `setCamera`, `screenPosition`, `pick`, `getState` (now also
+  `layers`, `linkVisibility`, `paused`, `animated`), `getClusters`,
+  `getLayers`, `setLayer(id, visible)` (false for an undeclared id),
+  `setLinkVisibility`, `setPaused`, `renderFrame`, plus the gamepad API below.
+  The setters take `{ source }` and go through the same `on*Change` callbacks
+  as a click. 3D adds `flyToCluster`, `flyToPoint`, `follow`.
 - **Every limit is a prop:** `limits={{ maxNodes, maxLinks, maxLabels, maxForcedLabels, maxLabelLength, labelMinPx, pickRadius, maxSearchResults, workerThreshold, maxSettleTicks, maxPixelRatio, minZoom, maxZoom, maxDistanceFactor, minDistance }}`. `DEFAULT_LIMITS` has the defaults.
 - **Stable handles:** the root is `[data-fancy-graph]` with
   `data-fancy-graph-renderer`, `-node-count`, `-link-count`, `-selected`,
-  `-hovered`, `-focused`, `-matches`; the canvas is `[data-fancy-graph-canvas]`;
+  `-hovered`, `-focused`, `-matches`, `-layers` (visible layer ids, space
+  separated), `-link-visibility`, `-paused`; the canvas is `[data-fancy-graph-canvas]`;
   labels are `[data-fancy-graph-label="<node id>"]` and
   `[data-fancy-graph-cluster-label="<cluster id>"]`.
 
@@ -154,7 +184,10 @@ view.current!.zoom(factor);                                  // > 1 is closer
 `registerGraphBridge` (agent-integrations, `/bridges/graph`) is opt-in and
 view-only: wire it to the same data, controlled props and handle, and agents can
 list and describe nodes, select, focus, step, fly, fit and search. It cannot
-change nodes or links.
+change nodes or links. Its `graph_select` with `null` clears the selection. It
+has no layer, link-mode or motion tools yet; until it does, an agent with the
+view handle uses `getLayers` / `setLayer` / `setLinkVisibility` / `setPaused`
+with `{ source: "agent" }`.
 
 ## Traps
 

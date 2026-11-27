@@ -4,6 +4,10 @@ import { hierarchyLayout, radialLayout, type HierarchyLayoutOptions, type Radial
 import type { ClusterSource } from "../render2d/engine";
 import type { GraphRenderers2D } from "../render2d/types";
 import type { GraphCluster, IndexedGraph } from "../types";
+import { DEFAULT_LAYERS, type GraphLayerSpec } from "../layers";
+
+/** Links and labels, plus a layer for the cluster hulls. */
+const WITH_CLUSTERS: GraphLayerSpec[] = [...DEFAULT_LAYERS, { id: "clusters", label: "Clusters" }];
 
 /** What a preset's layout may depend on. A change of `layoutKey` re-runs the layout. */
 export interface PresetState {
@@ -28,6 +32,8 @@ export interface GraphPreset2D {
   clusters?: ClusterSource;
   clusterLabel?: (cluster: GraphCluster) => string | null;
   linkVisibility?: "all" | "focus" | "none";
+  /** The layers this preset draws, for `layers` / `onLayersChange` and the controls. Default: links and labels. */
+  layers?: GraphLayerSpec[];
 }
 
 /** A force-directed network: the default view. */
@@ -37,6 +43,7 @@ export function networkPreset(options: ForceLayoutOptions = {}): GraphPreset2D {
     title: "Network",
     description: "A force-directed network: linked nodes pull together, everything else spreads out. The default view for any graph.",
     layout: () => forceLayout({ gravity: 0.05, ...options }),
+    layers: [...DEFAULT_LAYERS],
   };
 }
 
@@ -49,6 +56,7 @@ export function radialPreset(options: Omit<RadialLayoutOptions, "root"> = {}): G
     description: "An ego view centred on the focused node, else the selection: its neighbours on the first ring, theirs on the next, re-centred whenever the centre moves.",
     layout: (s) => radialLayout({ ...options, ringGap: options.ringGap ?? 90, root: centre(s) || undefined }),
     layoutKey: centre,
+    layers: [...DEFAULT_LAYERS],
   };
 }
 
@@ -59,6 +67,7 @@ export function hierarchyPreset(options: HierarchyLayoutOptions = {}): GraphPres
     title: "Hierarchy",
     description: "A layered tree for directed links (source above target): roots on top, each child under its parents, crossings reduced. Cycles are broken, not looped.",
     layout: () => hierarchyLayout({ layerGap: 90, nodeGap: 46, ...options }),
+    layers: [...DEFAULT_LAYERS],
   };
 }
 
@@ -71,6 +80,7 @@ export function clusteredPreset(options: ForceLayoutOptions = {}): GraphPreset2D
     layout: () => forceLayout({ groupPull: 0.3, gravity: 0.05, ...options }),
     clusters: "group",
     clusterLabel: (c) => `${c.label ?? c.id} · ${c.members.length}`,
+    layers: WITH_CLUSTERS,
   };
 }
 
