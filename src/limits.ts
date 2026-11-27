@@ -29,6 +29,11 @@ export interface GraphLimits {
   /** 2D zoom range. */
   minZoom: number;
   maxZoom: number;
+  /**
+   * Highest zoom an automatic fit (first view, `fit()`, Home) picks, so a small
+   * graph is not blown up to fill the view. Zooming by hand still reaches `maxZoom`.
+   */
+  fitMaxZoom: number;
   /** 3D camera distance range, as multiples of the graph's extent. */
   maxDistanceFactor: number;
   minDistance: number;
@@ -48,6 +53,7 @@ export const DEFAULT_LIMITS: Readonly<GraphLimits> = Object.freeze({
   maxPixelRatio: 2,
   minZoom: 0.01,
   maxZoom: 40,
+  fitMaxZoom: 2,
   maxDistanceFactor: 4,
   minDistance: 2,
 });

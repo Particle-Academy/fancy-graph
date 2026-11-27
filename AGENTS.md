@@ -180,7 +180,7 @@ carries `data-fancy-graph-preset` and `data-fancy-graph-theme`.
   `setLinkVisibility`, `setPaused`, `renderFrame`, plus the gamepad API below.
   The setters take `{ source }` and go through the same `on*Change` callbacks
   as a click. 3D adds `flyToCluster`, `flyToPoint`, `follow`.
-- **Every limit is a prop:** `limits={{ maxNodes, maxLinks, maxLabels, maxForcedLabels, maxLabelLength, labelMinPx, pickRadius, maxSearchResults, workerThreshold, maxSettleTicks, maxPixelRatio, minZoom, maxZoom, maxDistanceFactor, minDistance }}`. `DEFAULT_LIMITS` has the defaults.
+- **Every limit is a prop:** `limits={{ maxNodes, maxLinks, maxLabels, maxForcedLabels, maxLabelLength, labelMinPx, pickRadius, maxSearchResults, workerThreshold, maxSettleTicks, maxPixelRatio, minZoom, maxZoom, fitMaxZoom, maxDistanceFactor, minDistance }}`. `DEFAULT_LIMITS` has the defaults. `fitMaxZoom` (default 2) caps only the automatic fit, so a small graph is not blown up; zooming by hand still reaches `maxZoom`.
 - **Stable handles:** the root is `[data-fancy-graph]` with
   `data-fancy-graph-renderer`, `-node-count`, `-link-count`, `-selected`,
   `-hovered`, `-focused`, `-matches`, `-layers` (visible layer ids, space

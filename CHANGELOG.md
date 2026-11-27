@@ -10,6 +10,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-27
+
+**Consumer action: none.** A `limits={{ maxZoom }}` you lowered to stop a small
+graph being blown up can be removed; it still works if you keep it.
+
+### Added
+
+- **`GraphLimits.fitMaxZoom`** (default `2`): the highest zoom an automatic 2D
+  fit (first view, layout settling, `fit()`, Home) picks. It caps fitting only;
+  wheel, pinch, keys and `setCamera` still reach `maxZoom`. Set it through the
+  `limits` prop like every other limit.
+
+### Fixed
+
+- **A 2D fit frames whole nodes, not only their centres.** `fitCamera2D` took
+  its zoom from the bounding box of node centres, so a small graph (7 nodes,
+  3 links, 620x480, `preset="network"`) zoomed in until nodes of 3-14 world
+  units were drawn over 100 px across and the outer ones ran past the canvas
+  edge. The fit now includes each node's drawn radius (its resolved size,
+  including a preset's or the prop's `nodeSize`), so every node lies wholly
+  inside the padded viewport, and the zoom stops at `fitMaxZoom`. A large
+  graph's fit is unchanged: the radii are a rounding error there and the
+  ceiling never binds. `fitCamera2D` takes the radii as a new optional last
+  argument; existing calls still compile.
+- **A 3D `fit(ids)` frames each node's drawn radius too.** It sized the view
+  from the bounding sphere of the centres plus a fixed 4 units, so large nodes
+  at the edge were cut off. Home (`measure()`) already included the radii and is
+  unchanged.
+
 ## [0.2.2] - 2026-11-27
 
 **Consumer action: none.** A `key={preset}` you added to remount the 3D view on

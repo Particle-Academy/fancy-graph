@@ -222,7 +222,7 @@ export class CanvasEngine {
   fit(indices: number[] | null, instant = this.reducedMotion) {
     const p = this.runner?.positions;
     if (!p) return;
-    const cam = indices ? fitCamera2D(p, indices, this.width, this.height, Math.min(60, Math.min(this.width, this.height) * 0.1), this.limits) : this.fitAll(p);
+    const cam = this.fitCamera(p, indices);
     this.setCamera(cam, instant);
     if (!indices) this.userMoved = false;
   }
@@ -288,6 +288,8 @@ export class CanvasEngine {
     if (r.tick(dt)) this.clustersStale = true;
     const p = r.positions;
     const n = g.nodes.length;
+    // Sizes first: a fit frames each node's drawn radius, so it needs them.
+    this.refreshSizes();
 
     if (this.fitPending) {
       this.fitPending = false;
@@ -314,11 +316,7 @@ export class CanvasEngine {
     }
 
     const W = this.width, H = this.height, cam = this.camera;
-    if (this.sizes.length !== n) this.sizes = new Float32Array(n);
     for (let i = 0; i < n; i++) {
-      const node = g.nodes[i];
-      const s = this.opts.nodeSize ? this.opts.nodeSize(i) : node.size;
-      this.sizes[i] = typeof s === "number" && Number.isFinite(s) && s > 0 ? s : 3 + Math.min(9, Math.sqrt(g.degree[i]) * 1.5);
       const x = p[i * 3], y = p[i * 3 + 1];
       this.screen[i * 4] = (x - cam.x) * cam.zoom + W / 2;
       this.screen[i * 4 + 1] = (y - cam.y) * cam.zoom + H / 2;
@@ -345,8 +343,26 @@ export class CanvasEngine {
     return c.color ?? (c.members[0] !== undefined ? this.colors[c.members[0]] : undefined) ?? colorFor(c.id);
   }
 
+  /** Each node's radius in world units: its resolved size (the nodeSize option, else its own, else by degree). */
+  private refreshSizes() {
+    const g = this.graph;
+    if (!g) return;
+    const n = g.nodes.length;
+    if (this.sizes.length !== n) this.sizes = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const s = this.opts.nodeSize ? this.opts.nodeSize(i) : g.nodes[i].size;
+      this.sizes[i] = typeof s === "number" && Number.isFinite(s) && s > 0 ? s : 3 + Math.min(9, Math.sqrt(g.degree[i]) * 1.5);
+    }
+  }
+
+  /** A fit of `indices` (or everything) that frames each node's drawn radius. */
+  private fitCamera(p: Float32Array, indices: number[] | null): Camera2D {
+    this.refreshSizes();
+    return fitCamera2D(p, indices, this.width, this.height, Math.min(60, Math.min(this.width, this.height) * 0.1), this.limits, this.sizes);
+  }
+
   private fitAll(p: Float32Array): Camera2D {
-    return fitCamera2D(p, null, this.width, this.height, Math.min(60, Math.min(this.width, this.height) * 0.1), this.limits);
+    return this.fitCamera(p, null);
   }
 
   private resolveClusters(g: IndexedGraph, p: Float32Array): GraphCluster[] {

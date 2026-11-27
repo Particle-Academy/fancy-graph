@@ -107,6 +107,18 @@ describe.each([
     expect(onSelectedChange).toHaveBeenCalledWith("b", expect.objectContaining({ source: "user" }));
   });
 
+  it("fit(ids) frames each node's drawn radius, not only its centre", () => {
+    // a and b sit 100 apart with radius 80: the drawn sphere is 130, the centres' only 50.
+    const s = mount(withControls, { nodeSize: () => 80 });
+    act(() => {
+      s.ref.current!.fit(["a", "b"]);
+      for (let i = 0; i < 240; i++) s.frame();
+    });
+    expect(s.target.x).toBeCloseTo(-50, 0);
+    const half = THREE.MathUtils.degToRad(s.camera.fov) / 2;
+    expect(s.camera.position.distanceTo(s.target)).toBeGreaterThanOrEqual(130 / Math.sin(half));
+  });
+
   it("follows the selected node while it moves", () => {
     let t = 0;
     const moving = { animated: true, init() {}, step(out: Float32Array) { t += 1; out.set([t * 10, 0, 0, 0, 0, 0, 0, 0, 0]); return true; } };

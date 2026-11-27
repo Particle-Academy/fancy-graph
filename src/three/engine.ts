@@ -443,8 +443,11 @@ export class StageEngine {
     if (!p || !indices.length) return;
     const box = new THREE.Box3();
     for (const i of indices) box.expandByPoint(this.tmp.set(p[i * 3], p[i * 3 + 1], p[i * 3 + 2]));
-    const sphere = box.getBoundingSphere(new THREE.Sphere());
-    this.flyToPoint([sphere.center.x, sphere.center.y, sphere.center.z], this.fitDistance(Math.max(this.limits.minDistance, sphere.radius + 4)));
+    const c = box.getCenter(new THREE.Vector3());
+    // Frame each node's drawn radius, not only its centre (Home already does, in measure()).
+    let radius = 0;
+    for (const i of indices) radius = Math.max(radius, Math.hypot(p[i * 3] - c.x, p[i * 3 + 1] - c.y, p[i * 3 + 2] - c.z) + (this.sizes[i] || 0));
+    this.flyToPoint([c.x, c.y, c.z], this.fitDistance(Math.max(this.limits.minDistance, radius)));
   }
 
   setFollow(index: number) {
