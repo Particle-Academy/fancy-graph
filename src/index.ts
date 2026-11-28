@@ -18,6 +18,8 @@ export {
   cycleNeighbor,
   focusOf,
   hasHighlightRing,
+  inputNeighbors,
+  isSyntheticLink,
   neighborLinks,
   stepInDirection,
   type NeighborLink,
@@ -68,7 +70,7 @@ export {
 export { colorFor, parseColor, DEFAULT_PALETTE } from "./color";
 export { DARK_THEME, LIGHT_THEME, applyThemeVars, cssVar, resolveTheme, assignTypeColors, typeColor, typeColorsFor, type GraphTheme, type GraphThemeInput } from "./theme";
 export { GraphView, type GraphViewHandle, type GraphViewHandleBase, type GraphViewProps, type GraphViewState } from "./react/GraphView";
-export { useGraphModel, useReducedMotion, type ChangeMeta, type GraphModel, type GraphModelView, type GraphViewBaseProps } from "./react/model";
+export { countGraph, useGraphModel, useReducedMotion, type ChangeMeta, type GraphCounts, type GraphModel, type GraphModelView, type GraphViewBaseProps } from "./react/model";
 export type { GraphControlsHandle, GraphControlsProps, GraphControlsState } from "./react/controls";
 export type { GraphControlsFullscreen, GraphFullscreenHandle, GraphFullscreenProps, GraphFullscreenState } from "./react/fullscreen";
 export type { ClusterSource } from "./render2d/engine";

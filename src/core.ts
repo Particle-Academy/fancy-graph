@@ -13,6 +13,8 @@ export {
   cycleNeighbor,
   focusOf,
   hasHighlightRing,
+  inputNeighbors,
+  isSyntheticLink,
   neighborLinks,
   stepInDirection,
   type NeighborLink,

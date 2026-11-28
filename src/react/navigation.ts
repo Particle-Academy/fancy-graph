@@ -27,7 +27,8 @@ export function effectiveFocus(rendered: string | null, pending: PendingFocus | 
 
 /**
  * One gamepad / keyboard step. With nothing focused, focus lands on the
- * selection, else on the best-connected node. Directions follow links on
+ * selection, else on the best-connected input node (never a synthetic centre
+ * while there is an input node). Directions follow links on
  * screen; next / previous walk the anchor's links in their stable order, where
  * the anchor is the node focused when cycling began. Returns the node index to
  * focus (unchanged when there is nowhere to go).
@@ -38,9 +39,9 @@ export function stepFocusIndex(graph: IndexedGraph, cycle: CycleState, focused: 
   if (focused < 0 || focused >= n) {
     cycle.anchor = cycle.position = -1;
     if (selected >= 0 && selected < n) return selected;
-    let best = 0;
-    for (let i = 1; i < n; i++) if (graph.degree[i] > graph.degree[best]) best = i;
-    return best;
+    let best = -1;
+    for (let i = 0; i < n; i++) if (graph.nodes[i].synthetic !== true && (best < 0 || graph.degree[i] > graph.degree[best])) best = i;
+    return best >= 0 ? best : 0;
   }
   if (dir === "next" || dir === "previous") {
     const links = cycle.anchor >= 0 ? neighborLinks(graph, cycle.anchor) : [];

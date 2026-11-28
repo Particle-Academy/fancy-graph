@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type CSSProperties } from "react";
 import { normalizeGraph } from "../graph";
-import { searchNodes } from "../interaction";
+import { isSyntheticLink, searchNodes } from "../interaction";
 import { DEFAULT_LAYERS, layerMap, resolveLayers, type GraphLayerSpec, type GraphLayerState, type GraphLayerVisibility, type LinkVisibility } from "../layers";
 import type { GraphControlsProps } from "./controls";
 import type { GraphFullscreenProps } from "./fullscreen";
@@ -10,6 +10,25 @@ import type { GraphActivity, GraphActivitySource, GraphData, GraphNode, IndexedG
 
 export interface ChangeMeta {
   source: GraphActivitySource;
+  /** Set when the id is a view's synthetic node (a cosmos galaxy or system centre), not one of the input's. */
+  synthetic?: true;
+}
+
+/** What the view holds, split into the input's nodes and links and the ones a preset added (the cosmos's centres). */
+export interface GraphCounts {
+  nodes: number;
+  links: number;
+  syntheticNodes: number;
+  syntheticLinks: number;
+}
+
+/** Input and synthetic counts of an indexed graph (after validation and limits). */
+export function countGraph(graph: IndexedGraph): GraphCounts {
+  let syntheticNodes = 0;
+  let syntheticLinks = 0;
+  for (const n of graph.nodes) if (n.synthetic === true) syntheticNodes++;
+  for (const l of graph.links) if (isSyntheticLink(graph, l)) syntheticLinks++;
+  return { nodes: graph.nodes.length - syntheticNodes, links: graph.links.length - syntheticLinks, syntheticNodes, syntheticLinks };
 }
 
 /** The props every renderer shares: data, controlled interaction state, search, limits, motion. */
@@ -117,6 +136,8 @@ function useControllable<T>(value: T | undefined, defaultValue: T, onChange?: (v
 
 export interface GraphModel {
   graph: IndexedGraph;
+  /** Input counts, and the synthetic ones apart. Root handles and `getState()` report these. */
+  counts: GraphCounts;
   limits: GraphLimits;
   matches: Set<number> | null;
   matchIds: string[];
@@ -162,38 +183,55 @@ export function useGraphModel(props: GraphViewBaseProps, view: GraphModelView = 
   const matchIdx = useMemo(() => searchNodes(graph, props.search ?? "", { limit: limits.maxSearchResults }), [graph, props.search, limits]);
   const matches = useMemo(() => (matchIdx.length ? new Set(matchIdx) : null), [matchIdx]);
   const matchIds = useMemo(() => matchIdx.map((i) => graph.nodes[i].id), [matchIdx, graph]);
+  const counts = useMemo(() => countGraph(graph), [graph]);
+
+  // A select / hover / focus on a synthetic centre is allowed (a person can step to a galaxy core), and marked.
+  const graphRef = useRef(graph);
+  graphRef.current = graph;
+  const isSynthetic = useCallback((id: string | null | undefined) => {
+    if (id == null) return false;
+    const g = graphRef.current;
+    const i = g.index.get(id);
+    return i !== undefined && g.nodes[i]?.synthetic === true;
+  }, []);
+  const mark = useCallback((id: string | null, meta: ChangeMeta): ChangeMeta => (isSynthetic(id) ? { ...meta, synthetic: true } : meta), [isSynthetic]);
 
   const onActivity = useRef(props.onActivity);
   onActivity.current = props.onActivity;
-  const emit = useCallback((type: GraphActivity["type"], id: string | null | undefined, source: GraphActivitySource) => {
-    onActivity.current?.({ type, id: id ?? null, source, at: Date.now() });
-  }, []);
+  const emit = useCallback(
+    (type: GraphActivity["type"], id: string | null | undefined, source: GraphActivitySource) => {
+      const event: GraphActivity = { type, id: id ?? null, source, at: Date.now() };
+      if ((type === "select" || type === "hover" || type === "focus") && isSynthetic(id)) event.synthetic = true;
+      onActivity.current?.(event);
+    },
+    [isSynthetic],
+  );
 
   const onSelectedChange = props.onSelectedChange;
   const onSelected = useCallback(
     (id: string | null, meta: ChangeMeta) => {
-      onSelectedChange?.(id, meta);
+      onSelectedChange?.(id, mark(id, meta));
       emit("select", id, meta.source);
     },
-    [onSelectedChange, emit],
+    [onSelectedChange, emit, mark],
   );
   const onHoveredChange = props.onHoveredChange;
   const onHovered = useCallback(
     (id: string | null, meta: ChangeMeta) => {
-      onHoveredChange?.(id, meta);
+      onHoveredChange?.(id, mark(id, meta));
       emit("hover", id, meta.source);
     },
-    [onHoveredChange, emit],
+    [onHoveredChange, emit, mark],
   );
   const [selectedId, select] = useControllable<string | null>(props.selected, props.defaultSelected ?? null, onSelected);
   const [hoveredId, hover] = useControllable<string | null>(props.hovered, null, onHovered);
   const onFocusedChange = props.onFocusedChange;
   const onFocused = useCallback(
     (id: string | null, meta: ChangeMeta) => {
-      onFocusedChange?.(id, meta);
+      onFocusedChange?.(id, mark(id, meta));
       emit("focus", id, meta.source);
     },
-    [onFocusedChange, emit],
+    [onFocusedChange, emit, mark],
   );
   const [focusedId, setFocused] = useControllable<string | null>(props.focused, props.defaultFocused ?? null, onFocused);
 
@@ -266,6 +304,7 @@ export function useGraphModel(props: GraphViewBaseProps, view: GraphModelView = 
 
   return {
     graph,
+    counts,
     limits,
     matches,
     matchIds,

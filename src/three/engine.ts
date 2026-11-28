@@ -2,7 +2,7 @@ import * as THREE from "@particle-academy/fancy-3d-three/three";
 import { orbitFrom, orbitPosition, type Camera3D } from "../camera";
 import { groupClusters } from "../clusters";
 import { colorFor, parseColor } from "../color";
-import { computeLinkStates, computeNodeStates, focusOf, NODE_ACTIVE, NODE_NEIGHBOR, pickScreen } from "../interaction";
+import { computeLinkStates, computeNodeStates, focusOf, inputNeighbors, NODE_ACTIVE, NODE_NEIGHBOR, pickScreen } from "../interaction";
 import { effectiveLinkVisibility, isLayerVisible } from "../layers";
 import { chooseLabelSpot, LabelLayer, labelCandidates, placeLabels, type ClusterLabel, type ConstellationLabel, type PlacedLabel } from "../labels";
 import { createLayoutRunner, type GraphLayout, type LayoutRunner } from "../layout/contract";
@@ -748,7 +748,7 @@ export class StageEngine {
       text: (i) => this.textOf(i, max),
       limit: this.limits.maxLabels * 4,
       focused: this.focused,
-      focusNeighbors: this.focused >= 0 ? g.neighbors[this.focused] : undefined,
+      focusNeighbors: this.focused >= 0 ? inputNeighbors(g, this.focused) : undefined,
       cullOthers: this.neighborhood,
     });
     const placed = placeLabels(cands, { maxLabels: this.limits.maxLabels, maxForced: this.limits.maxForcedLabels, width: W, height: H });

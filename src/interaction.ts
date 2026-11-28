@@ -48,7 +48,8 @@ export function computeNodeStates(graph: IndexedGraph, f: FocusInput, out?: Uint
     return states;
   }
   states.fill(NODE_DIMMED);
-  if (!matches) for (const j of graph.neighbors[focus] ?? []) states[j] = NODE_NEIGHBOR;
+  // A view's synthetic centre (the cosmos's galaxy cores) is never someone's neighbour; a centre's own members still are.
+  if (!matches) for (const j of graph.neighbors[focus] ?? []) if (graph.nodes[j]?.synthetic !== true) states[j] = NODE_NEIGHBOR;
   if (matches) for (const j of matches) if (j >= 0 && j < n) states[j] = NODE_ACTIVE;
   if (selected >= 0 && selected < n) states[selected] = NODE_ACTIVE;
   if (hovered >= 0 && hovered < n) states[hovered] = NODE_ACTIVE;
@@ -79,7 +80,9 @@ export interface SearchOptions {
 
 /**
  * Case-insensitive substring search over labels and ids. Best-connected first,
- * so "Enter to fly" lands on the node most likely meant.
+ * so "Enter to fly" lands on the node most likely meant. Synthetic nodes (a
+ * view's own, such as the cosmos's galaxy cores) are never results: search
+ * reports the input.
  */
 export function searchNodes(graph: IndexedGraph, query: string, opts: SearchOptions = {}): number[] {
   const q = query.trim().toLowerCase();
@@ -88,6 +91,7 @@ export function searchNodes(graph: IndexedGraph, query: string, opts: SearchOpti
   const hits: number[] = [];
   for (let i = 0; i < graph.nodes.length; i++) {
     const node = graph.nodes[i];
+    if (node.synthetic === true) continue;
     const text = opts.text ? opts.text(i) : `${node.label ?? ""}\u0000${node.id}`;
     if (text.toLowerCase().includes(q)) hits.push(i);
   }
@@ -151,17 +155,38 @@ export interface NeighborLink {
   link: IndexedGraph["links"][number];
   /** "out" when this node is the link's source. */
   direction: "out" | "in";
+  /** Set when the link or the node at the other end is a view's own (a cosmos gravity link to a galaxy core), not the input's. */
+  synthetic?: true;
 }
 
-/** A node's links in a stable order (input link order), each with the node at the other end. */
+/** Whether a link is a view's own: marked `synthetic`, or touching a synthetic node. */
+export function isSyntheticLink(graph: IndexedGraph, link: IndexedGraph["links"][number]): boolean {
+  return link.link.synthetic === true || graph.nodes[link.a]?.synthetic === true || graph.nodes[link.b]?.synthetic === true;
+}
+
+/**
+ * A node's links in a stable order, each with the node at the other end: the
+ * input's links first, in input order, then any synthetic ones (a cosmos
+ * gravity link to its galaxy core), marked `synthetic: true`. Those are kept,
+ * last, so a person stepping with `next` can still reach the core.
+ */
 export function neighborLinks(graph: IndexedGraph, index: number): NeighborLink[] {
-  const out: NeighborLink[] = [];
+  const real: NeighborLink[] = [];
+  const made: NeighborLink[] = [];
   for (const li of graph.incident[index] ?? []) {
     const l = graph.links[li];
     const other = l.a === index ? l.b : l.a;
-    out.push({ id: graph.nodes[other].id, index: other, link: l, direction: l.a === index ? "out" : "in" });
+    const entry: NeighborLink = { id: graph.nodes[other].id, index: other, link: l, direction: l.a === index ? "out" : "in" };
+    if (isSyntheticLink(graph, l)) made.push({ ...entry, synthetic: true });
+    else real.push(entry);
   }
-  return out;
+  return made.length ? real.concat(made) : real;
+}
+
+/** A node's neighbours that are input nodes (no synthetic centre): the ones labelled and highlighted with it. */
+export function inputNeighbors(graph: IndexedGraph, index: number): number[] {
+  const all = graph.neighbors[index] ?? [];
+  return all.some((j) => graph.nodes[j]?.synthetic === true) ? all.filter((j) => graph.nodes[j]?.synthetic !== true) : all;
 }
 
 export type ScreenDirection = "up" | "down" | "left" | "right";
@@ -180,17 +205,23 @@ export function stepInDirection(graph: IndexedGraph, from: number, dir: ScreenDi
   const fx = screen[from * 4], fy = screen[from * 4 + 1];
   let best = -1;
   let bestScore = Infinity;
+  // Input neighbours first; a synthetic centre only when no input neighbour lies that way.
+  let synthetic = false;
   for (const j of graph.neighbors[from] ?? []) {
     if (screen[j * 4 + 3] <= 0) continue;
+    const s = graph.nodes[j]?.synthetic === true;
+    if (s && !synthetic && best >= 0) continue;
     const dx = screen[j * 4] - fx, dy = screen[j * 4 + 1] - fy;
     const d = Math.hypot(dx, dy);
     if (d < 1e-6) continue;
     const cos = (dx * ux + dy * uy) / d;
     if (cos < 0.5) continue;
     const score = d * (1 + 2 * (1 - cos));
-    if (score < bestScore || (score === bestScore && j < best)) {
+    const promote = synthetic && !s;
+    if (promote || score < bestScore || (score === bestScore && j < best)) {
       bestScore = score;
       best = j;
+      synthetic = s;
     }
   }
   return best;

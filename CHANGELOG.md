@@ -73,6 +73,36 @@ the new `overlay` prop instead of beside the view.
   the wrapper, so on 6.31.0+ no layer or motion switch carried
   `data-fancy-graph-toggle` and an agent addressing `layer:<id>` or `motion`
   found nothing. It now accepts either placement. **Nothing to do.**
+- **The cosmos's synthetic centres no longer leak into the public surface.**
+  Since galaxies form by default (0.4.1), the `cosmos:galaxy:*` /
+  `cosmos:system:*` nodes `prepareCosmos` adds (`synthetic: true`) were counted
+  and listed as if they were the input's (lab run 1563: 45 nodes and 85 links
+  reported for data of 40 and 45, and `neighbors(n4)` led with the core). Now:
+  - `data-fancy-graph-node-count` / `-link-count`, `getState().nodeCount` /
+    `linkCount` and the canvas's accessible name report the INPUT. The
+    synthetic ones are apart: `data-fancy-graph-synthetic-node-count` /
+    `-synthetic-link-count` and `getState().syntheticNodeCount` /
+    `syntheticLinkCount`.
+  - `neighbors(id)` lists the input's links first, in input order, then a
+    gravity link to a core LAST, marked `synthetic: true` (`NeighborLink`). It
+    is kept rather than dropped so a person stepping with `stepFocus("next")`
+    can still reach the core, after every real neighbour. Directional steps
+    take a core only when no input neighbour lies that way; with nothing
+    focused, `stepFocus` lands on the best-connected input node.
+  - A core is never highlighted or labelled as a neighbour (neighbourhood mode
+    labels the focus and its real neighbours only). Selecting or focusing a
+    core still highlights its members.
+  - Search (`searchNodes`, `matches`, `onSearchResults`,
+    `data-fancy-graph-matches`) returns input nodes only.
+  - A core can still be selected, hovered and focused; `onSelectedChange` /
+    `onHoveredChange` / `onFocusedChange` then get `meta.synthetic: true`, and
+    the activity event carries `synthetic: true`. Input nodes carry no mark.
+  - New exports: `isSyntheticLink`, `inputNeighbors`, `countGraph`,
+    `GraphCounts`.
+
+  **Consumer action: none**, unless you subtracted the synthetic centres from
+  `nodeCount` yourself; stop, or you will subtract them twice. An agent bridge
+  reading `getState()` and `neighbors()` gets the corrected values as is.
 
 ## [0.4.1] - 2026-11-28
 

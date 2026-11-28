@@ -306,12 +306,14 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
   }, [camKey]);
 
   // Stable handles on the enclosing [data-fancy-graph] (GraphView3D's root), and an accessible name on the canvas.
-  const ariaName = `${props["aria-label"] ?? "Graph"}: ${graph.nodes.length} nodes, ${graph.links.length} links`;
+  const ariaName = `${props["aria-label"] ?? "Graph"}: ${model.counts.nodes} nodes, ${model.counts.links} links`;
   useLayoutEffect(() => {
     const root = stage.canvas.closest<HTMLElement>("[data-fancy-graph]");
     if (root) {
-      root.dataset.fancyGraphNodeCount = String(graph.nodes.length);
-      root.dataset.fancyGraphLinkCount = String(graph.links.length);
+      root.dataset.fancyGraphNodeCount = String(model.counts.nodes);
+      root.dataset.fancyGraphLinkCount = String(model.counts.links);
+      root.dataset.fancyGraphSyntheticNodeCount = String(model.counts.syntheticNodes);
+      root.dataset.fancyGraphSyntheticLinkCount = String(model.counts.syntheticLinks);
       root.dataset.fancyGraphSelected = model.selectedId ?? "";
       root.dataset.fancyGraphHovered = model.hoveredId ?? "";
       root.dataset.fancyGraphFocused = model.focusedId ?? "";
@@ -322,7 +324,7 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
     stage.canvas.setAttribute("aria-label", ariaName);
     stage.canvas.setAttribute("role", "img");
     stage.canvas.setAttribute("data-fancy-graph-canvas", "");
-  }, [stage, graph, model.selectedId, model.hoveredId, model.focusedId, model.matchIds, ariaName, model.layerStates, model.linkVisibility, model.paused, constellation]);
+  }, [stage, graph, model.counts, model.selectedId, model.hoveredId, model.focusedId, model.matchIds, ariaName, model.layerStates, model.linkVisibility, model.paused, constellation]);
 
   useImperativeHandle(
     props.ref,
@@ -411,8 +413,10 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
             hovered: mm.hoveredId,
             focused: mm.focusedId,
             matches: mm.matchIds,
-            nodeCount: mm.graph.nodes.length,
-            linkCount: mm.graph.links.length,
+            nodeCount: mm.counts.nodes,
+            linkCount: mm.counts.links,
+            syntheticNodeCount: mm.counts.syntheticNodes,
+            syntheticLinkCount: mm.counts.syntheticLinks,
             dropped: { ...mm.graph.dropped },
             ...controlsState(mm, animatedRef.current, fsRef.current.state()),
           };

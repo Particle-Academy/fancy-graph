@@ -106,8 +106,10 @@ with **lenses**, plain JSON on the `cosmos` prop:
 
 - **Every centre is a node.** A star or a galaxy's core is a real node, or one
   the view makes per field value (`cosmos:system:<value>`,
-  `cosmos:galaxy:<value>`, `synthetic: true`). It can be selected, labelled
-  and searched, and counts against the limits.
+  `cosmos:galaxy:<value>`, `synthetic: true`). It can be selected and
+  focused, and counts against the limits, but counts, search and neighbour
+  lists report the input: synthetic centres are counted apart, never searched,
+  and come last in `neighbors()`, marked `synthetic: true`.
 - **Galaxies by group, out of the box.** With no `galaxies` lens, a graph whose
   nodes have two or more groups (`node.group`, or a `type` field) becomes one
   spiral galaxy per group, so regrouping your data re-forms the galaxies and

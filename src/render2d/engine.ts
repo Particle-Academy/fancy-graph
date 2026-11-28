@@ -1,7 +1,7 @@
 import { clampCamera2D, fitCamera2D, lerpCamera2D, zoomAt2D, type Camera2D } from "../camera";
 import { groupClusters } from "../clusters";
 import { colorFor } from "../color";
-import { computeLinkStates, computeNodeStates, focusOf, hasHighlightRing, LINK_ACTIVE, LINK_DIMMED, NODE_ACTIVE, NODE_DIMMED, pickScreen } from "../interaction";
+import { computeLinkStates, computeNodeStates, focusOf, hasHighlightRing, inputNeighbors, LINK_ACTIVE, LINK_DIMMED, NODE_ACTIVE, NODE_DIMMED, pickScreen } from "../interaction";
 import { effectiveLinkVisibility, isLayerVisible } from "../layers";
 import { LabelLayer, labelCandidates, placeLabels, type ClusterLabel, type PlacedLabel } from "../labels";
 import { createLayoutRunner, type GraphLayout, type LayoutRunner } from "../layout/contract";
@@ -497,7 +497,7 @@ export class CanvasEngine {
       labelMinPx: this.limits.labelMinPx * 2.5,
       text: (i) => truncateLabel(this.opts.labelOf(i), max),
       focused: this.focused,
-      focusNeighbors: this.focused >= 0 ? g.neighbors[this.focused] : undefined,
+      focusNeighbors: this.focused >= 0 ? inputNeighbors(g, this.focused) : undefined,
       cullOthers: this.neighborhood,
     });
     const placed: PlacedLabel[] = placeLabels(cands, { maxLabels: this.limits.maxLabels, maxForced: this.limits.maxForcedLabels, width: W, height: H });

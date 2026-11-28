@@ -119,9 +119,16 @@ Gravity places, light draws. Tell it which relations are gravity with
   memberships.
 - **Centres are nodes.** With a `{ field }` lens the view adds one node per
   value: `cosmos:system:<value>` / `cosmos:galaxy:<value>`, labelled with the
-  value, `synthetic: true`. They count in `nodeCount`, can be selected and
-  searched, and count against `maxNodes` / `maxLinks`. Skip `node.synthetic`
-  when you list nodes. Using `layout={cosmosLayout(...)}` without the preset?
+  value, `synthetic: true`. They count against `maxNodes` / `maxLinks`, but
+  every input-facing count and list reports the INPUT: `nodeCount` /
+  `linkCount` and `-node-count` / `-link-count` leave them out (they are in
+  `syntheticNodeCount` / `syntheticLinkCount` and `-synthetic-node-count` /
+  `-synthetic-link-count`), search never returns them, and they are never
+  highlighted or labelled as a neighbour. `neighbors(id)` lists a member's
+  gravity link to its core LAST, marked `synthetic: true`, so `stepFocus("next")`
+  reaches every real neighbour first and the core after. A core can be
+  selected or focused; the callback's `meta` and the activity event then carry
+  `synthetic: true`. Skip `node.synthetic` when you list nodes. Using `layout={cosmosLayout(...)}` without the preset?
   Pass `data={prepareCosmos(data, lenses)}`.
 - **What is drawn**: gravity is the orbit (the `orbits` layer, on by default
   since 0.4.1, draws faint rings only for the selected, focused or hovered
@@ -301,7 +308,8 @@ carries `data-fancy-graph-preset` and `data-fancy-graph-theme`.
   `getState().constellation`.
 - **Every limit is a prop:** `limits={{ maxNodes, maxLinks, maxLabels, maxForcedLabels, maxLabelLength, labelMinPx, pickRadius, maxSearchResults, workerThreshold, maxSettleTicks, maxPixelRatio, minZoom, maxZoom, fitMaxZoom, maxDistanceFactor, minDistance, maxPlacement, maxOrbitDepth, maxPlanetsPerSystem, maxSpreadTicks, maxComets, maxCometStops, maxCometTail, maxConstellations, maxConstellationMembers, maxTextures, zoomLabelPx }}`. `DEFAULT_LIMITS` has the defaults. `fitMaxZoom` (default 2) caps only the automatic fit, so a small graph is not blown up; zooming by hand still reaches `maxZoom`.
 - **Stable handles:** the root is `[data-fancy-graph]` with
-  `data-fancy-graph-renderer`, `-node-count`, `-link-count`, `-selected`,
+  `data-fancy-graph-renderer`, `-node-count`, `-link-count` (the input's),
+  `-synthetic-node-count`, `-synthetic-link-count` (a preset's own), `-selected`,
   `-hovered`, `-focused`, `-matches`, `-layers` (visible layer ids, space
   separated), `-link-visibility`, `-paused`; the canvas is `[data-fancy-graph-canvas]`;
   labels are `[data-fancy-graph-label="<node id>"]`,
@@ -319,7 +327,7 @@ const view = useRef<GraphViewHandle>(null); // or GraphScene3DHandle
 // Buttons: move the focus along links.
 view.current!.stepFocus("up" | "down" | "left" | "right");   // nearest linked node in that screen direction
 view.current!.stepFocus("next" | "previous");                // cycle the links of the node where cycling began
-view.current!.neighbors(id);                                 // that node's links, stable order (input order)
+view.current!.neighbors(id);                                 // that node's links: input links in input order, then synthetic ones (marked)
 // Sticks: analog camera, per frame.
 view.current!.orbit(dxRadians, dyRadians);                   // 3D; returns false in 2D (no rotation)
 view.current!.pan(dxPx, dyPx);                               // screen px, x right, y down; releases a follow
@@ -327,7 +335,7 @@ view.current!.zoom(factor);                                  // > 1 is closer
 ```
 
 - `stepFocus` returns the focused id. With nothing focused it lands on the
-  selection, else on the best-connected node. Two steps in one tick both count.
+  selection, else on the best-connected input node. Two steps in one tick both count.
 - The focus is NOT the selection: it has a dashed ring (`--fancy-focus`), the
   selection a solid one. Select the focused node with
   `select(getState().focused)` on your confirm button.

@@ -153,4 +153,6 @@ export interface GraphActivity {
   id?: string | null;
   source: GraphActivitySource;
   at: number;
+  /** Set on a select / hover / focus whose `id` is a view's synthetic node (a cosmos galaxy core), not an input node. */
+  synthetic?: true;
 }

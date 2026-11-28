@@ -52,8 +52,14 @@ export interface GraphViewState extends GraphControlsState {
   hovered: string | null;
   focused: string | null;
   matches: string[];
+  /** Input nodes in the view (after validation and limits). A preset's synthetic centres are not counted here. */
   nodeCount: number;
+  /** Input links in the view. A preset's synthetic gravity links are not counted here. */
   linkCount: number;
+  /** Nodes the view added itself (the cosmos's galaxy and system centres, `synthetic: true`). */
+  syntheticNodeCount: number;
+  /** Links the view added itself (gravity to those centres). */
+  syntheticLinkCount: number;
   dropped: { nodes: number; links: number; invalidLinks: number; duplicateNodes: number };
 }
 
@@ -333,8 +339,10 @@ export function GraphView(props: GraphViewProps) {
             hovered: mm.hoveredId,
             focused: mm.focusedId,
             matches: mm.matchIds,
-            nodeCount: mm.graph.nodes.length,
-            linkCount: mm.graph.links.length,
+            nodeCount: mm.counts.nodes,
+            linkCount: mm.counts.links,
+            syntheticNodeCount: mm.counts.syntheticNodes,
+            syntheticLinkCount: mm.counts.syntheticLinks,
             dropped: { ...mm.graph.dropped },
             ...controlsState(mm, animatedRef.current, fsRef.current.state()),
           };
@@ -348,7 +356,7 @@ export function GraphView(props: GraphViewProps) {
   );
 
   const selectedLabel = model.selectedIndex >= 0 ? model.labelOf(model.selectedIndex) : "";
-  const label = `${props["aria-label"] ?? "Graph"}: ${graph.nodes.length} nodes, ${graph.links.length} links`;
+  const label = `${props["aria-label"] ?? "Graph"}: ${model.counts.nodes} nodes, ${model.counts.links} links`;
   return (
     <FullscreenContext.Provider value={fs.controller}>
     <div
@@ -358,8 +366,10 @@ export function GraphView(props: GraphViewProps) {
       data-fancy-graph=""
       data-fancy-graph-renderer="2d"
       data-fancy-graph-preset={preset.id}
-      data-fancy-graph-node-count={graph.nodes.length}
-      data-fancy-graph-link-count={graph.links.length}
+      data-fancy-graph-node-count={model.counts.nodes}
+      data-fancy-graph-link-count={model.counts.links}
+      data-fancy-graph-synthetic-node-count={model.counts.syntheticNodes}
+      data-fancy-graph-synthetic-link-count={model.counts.syntheticLinks}
       data-fancy-graph-selected={model.selectedId ?? ""}
       data-fancy-graph-hovered={model.hoveredId ?? ""}
       data-fancy-graph-focused={model.focusedId ?? ""}
