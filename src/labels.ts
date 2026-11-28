@@ -114,6 +114,12 @@ export interface CandidateInput {
    */
   reach?: Float32Array;
   reachMinPx?: number;
+  /**
+   * Most unforced candidates returned, the highest priority kept. Text is
+   * only asked for those, so a big graph does not build thousands of label
+   * strings a frame for the few that can be placed. Default: no cap.
+   */
+  limit?: number;
 }
 
 /**
@@ -123,7 +129,7 @@ export interface CandidateInput {
  */
 export function labelCandidates(input: CandidateInput): LabelCandidate[] {
   const { screen, states, selected, hovered, matches, width, height } = input;
-  const out: LabelCandidate[] = [];
+  const kept: { index: number; x: number; y: number; radius: number; priority: number; forced: boolean }[] = [];
   const focused = input.focused ?? -1;
   const near = new Set(focused >= 0 ? (input.focusNeighbors ?? []) : []);
   const quiet = selected >= 0 || (matches && matches.size > 0) || (!!input.cullOthers && focused >= 0);
@@ -152,9 +158,21 @@ export function labelCandidates(input: CandidateInput): LabelCandidate[] {
     else if (states[i] === NODE_NEIGHBOR) priority += 1e4;
     else if (quiet || (input.reach ? reach < 0 || reach < (input.reachMinPx ?? input.labelMinPx) : r < input.labelMinPx)) continue;
     else if (states[i] !== NODE_ACTIVE && hovered >= 0) priority *= 0.5;
-    out.push({ index: i, x, y, radius: r, text: input.text(i), priority, forced });
+    kept.push({ index: i, x, y, radius: r, priority, forced });
   }
-  return out;
+  let list = kept;
+  const limit = input.limit;
+  if (typeof limit === "number" && Number.isFinite(limit) && limit >= 0) {
+    const free = kept.filter((c) => !c.forced);
+    if (free.length > limit) {
+      const n = Math.floor(limit);
+      // The n-th highest priority; everything above it is kept, and ties at it fill what room is left, in index order.
+      const cut = n > 0 ? Float64Array.from(free, (c) => c.priority).sort()[free.length - n] : Infinity;
+      let room = n - free.filter((c) => c.priority > cut).length;
+      list = kept.filter((c) => c.forced || c.priority > cut || (c.priority === cut && room-- > 0));
+    }
+  }
+  return list.map((c) => ({ ...c, text: input.text(c.index) }));
 }
 
 export interface ClusterLabel {
@@ -173,6 +191,23 @@ const CLUSTER_CSS =
   "position:absolute;left:0;top:0;white-space:nowrap;pointer-events:none;will-change:transform;display:none;" +
   "font:600 12px/16px ui-sans-serif,system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;" +
   "text-shadow:0 0 6px var(--fancy-graph-label-halo,#000),0 0 2px var(--fancy-graph-label-halo,#000)";
+
+/**
+ * The first spot (CSS px, in order) where a centred name `textWidth` wide is
+ * on screen, at least `clear` px from every name already `taken`, and off
+ * every placed node label's box. Null when none is clear: better no name than
+ * one on top of another.
+ */
+export function chooseLabelSpot(spots: readonly [number, number][], taken: readonly { x: number; y: number }[], boxes: readonly PlacedLabel[], textWidth: number, width: number, height: number, clear: number): [number, number] | null {
+  const hw = textWidth / 2 + 4;
+  for (const [x, y] of spots) {
+    if (x - hw < 0 || x + hw > width || y < 12 || y > height - 8) continue;
+    if (taken.some((t) => Math.hypot(t.x - x, t.y - y) <= clear)) continue;
+    if (boxes.some((b) => x + hw > b.x && x - hw < b.x + b.w && y + 9 > b.y && y - 9 < b.y + b.h)) continue;
+    return [x, y];
+  }
+  return null;
+}
 
 export interface ConstellationLabel {
   id: string;

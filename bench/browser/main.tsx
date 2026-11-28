@@ -3,13 +3,13 @@
  * Bundled to one IIFE (bench/browser/tsup.config.ts) and opened from file://
  * by run.mjs. Not shipped.
  */
-import { createRef, useState } from "react";
+import { createRef, useMemo, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { forceLayout, GRAPH_PRESETS_2D, GraphView, type GraphData, type GraphViewHandle } from "../../src/index";
-import { GRAPH_PRESETS_3D, GraphView3D, type GraphScene3DHandle } from "../../src/three/index";
+import { cosmosPreset, GRAPH_PRESETS_3D, GraphView3D, type CosmosLenses, type GraphScene3DHandle } from "../../src/three/index";
 import { COSMOS_COLORS, cosmosData } from "../../examples/cosmos/data";
-import { cosmosLayout } from "../../examples/cosmos/layout";
-import { cosmosProps, cosmosRenderers } from "../../examples/cosmos/renderers";
+import { BEACHHEAD_COSMOS } from "../../examples/cosmos/renderers";
+import { KIT_NOW, kitData } from "../../examples/cosmos/kit";
 import { GraphViewControls } from "../../src/controls/index";
 
 type Handle = GraphViewHandle | GraphScene3DHandle;
@@ -72,15 +72,14 @@ function Demo2D({ data, opts, handleRef }: { data: GraphData; opts: MountOptions
 
 function Demo3D({ data, opts, handleRef }: { data: GraphData; opts: MountOptions; handleRef: React.RefObject<GraphScene3DHandle | null> }) {
   const [selected, setSelected] = useState<string | null>(opts.selected ?? null);
-  const [layout] = useState(() => cosmosLayout({ colors: COSMOS_COLORS }));
-  const [renderers] = useState(() => cosmosRenderers());
+  // Beachhead's view: a galaxy per type, as the consumer asks for it in 0.4.0.
+  const preset = useMemo(() => cosmosPreset({ ...BEACHHEAD_COSMOS, colors: COSMOS_COLORS }), []);
   return (
     <GraphView3D
       ref={handleRef}
       data={data}
-      layout={layout}
-      renderers={renderers}
-      {...cosmosProps()}
+      preset={preset}
+      theme={{ base: "dark", typeColors: COSMOS_COLORS }}
       selected={selected}
       onSelectedChange={(id) => setSelected(id)}
       defaultFocused={opts.focused ?? null}
@@ -129,7 +128,88 @@ function PresetSwitcher({ kind, first, data }: { kind: "2d" | "3d"; first: strin
   );
 }
 
+/** A small system whose bodies carry their own looks: every skin, atmospheres, rings, moons. */
+function looksData(): GraphData {
+  const planets: [string, string, Record<string, unknown>][] = [
+    ["ember", "#f97316", { skin: { type: "lava", colors: ["#7c2d12", "#fdba74"] } }],
+    ["terra", "#38bdf8", { skin: { type: "ocean", colors: ["#1d4ed8", "#65a30d"] }, atmosphere: { color: "#93c5fd", thickness: 0.18, glow: 0.9 } }],
+    ["dust", "#d6a77a", { skin: { type: "rocky", colors: ["#7c4a2d", "#e7c9a3"] } }],
+    ["ringo", "#eab308", { skin: { type: "gas", colors: ["#a16207", "#fef3c7"] }, rings: { color: "#fde68a", inner: 1.4, outer: 2.5, opacity: 0.85 }, atmosphere: { thickness: 0.1, glow: 0.6 } }],
+    ["frost", "#a5f3fc", { skin: { type: "ice", colors: ["#67e8f9", "#f0fdff"] }, atmosphere: { color: "#cffafe", thickness: 0.1, glow: 0.5 } }],
+    ["umber", "#a78bfa", { skin: { type: "gas", colors: ["#4c1d95", "#ddd6fe"] }, rings: { color: "#c4b5fd", inner: 1.3, outer: 2.0, tilt: 0.5, opacity: 0.6 } }],
+  ];
+  const nodes: GraphData["nodes"] = [{ id: "sol", label: "Sol", group: "star", color: "#fde68a" }];
+  const links: GraphData["links"] = [];
+  planets.forEach(([id, color, look], k) => {
+    nodes.push({ id, label: id[0].toUpperCase() + id.slice(1), group: "planet", color, size: 7 + (k % 3) * 2.5, cosmos: look });
+    links.push({ source: id, target: "sol", kind: "orbits" });
+    for (let m = 0; m < (k % 3); m++) {
+      const moon = `${id}-moon-${m}`;
+      nodes.push({ id: moon, label: `${id} ${["I", "II"][m]}`, group: "moon", color: "#cbd5e1" });
+      links.push({ source: moon, target: id, kind: "orbits" });
+    }
+  });
+  return { nodes, links };
+}
+
+const COSMOS_DATA: Record<string, () => GraphData> = {
+  beachhead: () => cosmosData(650, 900, 1),
+  kit: () => kitData(120, 3),
+  looks: looksData,
+};
+
+/** The kit dependency map, the cosmos's first real use: systems by language, a constellation per feature, comets. */
+const KIT_COSMOS: CosmosLenses = {
+  systems: { by: { field: "language" } },
+  constellations: { by: { field: "features" } },
+  comets: ["multi-membership", { field: "releasedAt", within: "14d", now: KIT_NOW }],
+};
+const COSMOS_LENSES: Record<string, CosmosLenses> = {
+  galaxies: BEACHHEAD_COSMOS,
+  kit: KIT_COSMOS,
+  looks: { systems: { by: { relation: "orbits" } }, comets: false },
+};
+
+interface CosmosCase {
+  data: string;
+  lenses: string;
+  selected?: string | null;
+  constellation?: string | null;
+  fly?: { id: string; distance: number } | null;
+  layers?: Record<string, boolean>;
+  frames?: number;
+}
+
 const harness = {
+  /** A cosmos as a consumer configures it: a named dataset and lens set, optionally a selection, a constellation or a flight. */
+  async mountCosmos(c: CosmosCase) {
+    reset();
+    host().style.background = "#02030a";
+    const data = COSMOS_DATA[c.data]();
+    const ref = createRef<GraphScene3DHandle>();
+    root!.render(
+      <GraphView3D
+        ref={ref}
+        data={data}
+        preset="cosmos"
+        cosmos={COSMOS_LENSES[c.lenses]}
+        theme={{ base: "dark", typeColors: COSMOS_COLORS }}
+        defaultSelected={c.selected ?? null}
+        defaultSelectedConstellation={c.constellation ?? null}
+        defaultLayers={c.layers}
+        flyOnSelect={false}
+        reducedMotion
+        style={{ width: "100%", height: "100%" }}
+        aria-label="Cosmos"
+      />,
+    );
+    await waitFrames(30);
+    handle = ref.current;
+    if (c.fly) (handle as GraphScene3DHandle).flyTo(c.fly.id, { distance: c.fly.distance });
+    await waitFrames(c.frames ?? 30);
+    const h = handle as GraphScene3DHandle;
+    return { ...h.getState(), comets: (h.getMeta() as { comets: unknown[] }).comets.length, constellations: h.getConstellations().map((k) => k.id), crumbs: h.getBreadcrumbs().map((k) => k.id) };
+  },
   /**
    * Switches one mounted view through every ordered pair of its kind's presets,
    * in place. Returns the preset the root reports after each step; a throw

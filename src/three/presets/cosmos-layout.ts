@@ -1609,7 +1609,7 @@ function resolveConstellations(graph: IndexedGraph, spec: CosmosLenses["constell
  */
 export function cometTailPoints(meta: CosmosMeta, i: number, t: number, maxTail: number): [Vec3, Vec3, Vec3] {
   const b = meta.bodies[i];
-  let tau = 5 * Math.max(0.2, b?.tail ?? 1);
+  let tau = 8 * Math.max(0.2, b?.tail ?? 1);
   const p0 = new Float64Array(3), p1 = new Float64Array(3), p2 = new Float64Array(3);
   const sample = () => {
     meta.positionAt(i, t, p0 as unknown as number[]);

@@ -1,6 +1,6 @@
 {
   "profile": "hardware",
-  "measuredAt": "2026-11-26T07:32:26.293Z",
+  "measuredAt": "2026-11-28T02:55:38.560Z",
   "browser": "chromium 159.0.8154.6 (headless)",
   "webgl": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 (0x00002488) Direct3D11 vs_5_0 ps_5_0, D3D11)",
   "viewport": "1280x800 @1x",
@@ -12,16 +12,16 @@
       "links": 900,
       "frameCostMs": {
         "frames": 240,
-        "mean": 0.17,
+        "mean": 0.21,
         "p50": 0.2,
-        "p95": 0.3,
-        "max": 0.7
+        "p95": 0.4,
+        "max": 0.8
       },
       "rafIntervalMs": {
         "frames": 240,
         "mean": 16.67,
         "p50": 16.7,
-        "p95": 16.8,
+        "p95": 16.7,
         "max": 16.8
       }
     },
@@ -32,10 +32,10 @@
       "links": 6000,
       "frameCostMs": {
         "frames": 240,
-        "mean": 0.83,
+        "mean": 0.91,
         "p50": 0.8,
-        "p95": 1.2,
-        "max": 2.1
+        "p95": 1.5,
+        "max": 2.2
       },
       "rafIntervalMs": {
         "frames": 240,
@@ -48,14 +48,14 @@
     {
       "label": "3D cosmos, 650 nodes",
       "renderer": "3d webgl (cosmos)",
-      "nodes": 650,
-      "links": 900,
+      "nodes": 658,
+      "links": 1550,
       "frameCostMs": {
         "frames": 240,
-        "mean": 0.33,
-        "p50": 0.3,
-        "p95": 0.5,
-        "max": 0.6
+        "mean": 0.48,
+        "p50": 0.5,
+        "p95": 0.7,
+        "max": 0.9
       },
       "rafIntervalMs": {
         "frames": 240,
@@ -68,14 +68,14 @@
     {
       "label": "3D cosmos, 4,000 nodes / 6,000 links",
       "renderer": "3d webgl (cosmos)",
-      "nodes": 4000,
+      "nodes": 4008,
       "links": 6000,
       "frameCostMs": {
         "frames": 240,
-        "mean": 1.07,
-        "p50": 1,
-        "p95": 1.5,
-        "max": 2.1
+        "mean": 2.09,
+        "p50": 2.2,
+        "p95": 2.7,
+        "max": 3.2
       },
       "rafIntervalMs": {
         "frames": 241,
@@ -91,7 +91,7 @@
     "selected3d": "agent-0",
     "handles3d": {
       "renderer": "3d",
-      "nodes": "650",
+      "nodes": "658",
       "selected": "agent-0",
       "labels": 13,
       "clusterLabels": 8
@@ -110,11 +110,11 @@
       },
       "step3d": {
         "seq": [
-          "agent-7",
-          "agent-194"
+          "cosmos:galaxy:agent",
+          "agent-7"
         ],
         "yawMoved": 0.3,
-        "focusedAttr": "agent-194"
+        "focusedAttr": "agent-7"
       }
     },
     "gallery": {
@@ -158,7 +158,7 @@
         "selected": "agent-0",
         "preset": "cosmos",
         "theme": "dark",
-        "labels": 16
+        "labels": 14
       },
       "3d-layered": {
         "nodes": 160,
@@ -167,6 +167,326 @@
         "theme": "dark",
         "labels": 12
       }
+    },
+    "cosmosShots": {
+      "3d-cosmos-galaxies": {
+        "constellation": null,
+        "selected": null,
+        "hovered": null,
+        "focused": null,
+        "matches": [],
+        "nodeCount": 658,
+        "linkCount": 1550,
+        "dropped": {
+          "nodes": 0,
+          "links": 0,
+          "invalidLinks": 0,
+          "duplicateNodes": 0
+        },
+        "layers": {
+          "background": true,
+          "clusters": true,
+          "cores": true,
+          "orbits": false,
+          "links": true,
+          "comets": true,
+          "labels": true
+        },
+        "linkVisibility": "focus",
+        "paused": false,
+        "animated": true,
+        "comets": 0,
+        "constellations": [],
+        "crumbs": [
+          null
+        ],
+        "labels": 5,
+        "constellationLabels": 0
+      },
+      "3d-cosmos-kit": {
+        "constellation": null,
+        "selected": null,
+        "hovered": null,
+        "focused": null,
+        "matches": [],
+        "nodeCount": 123,
+        "linkCount": 369,
+        "dropped": {
+          "nodes": 0,
+          "links": 0,
+          "invalidLinks": 0,
+          "duplicateNodes": 0
+        },
+        "layers": {
+          "background": true,
+          "clusters": true,
+          "cores": true,
+          "orbits": false,
+          "links": true,
+          "constellations": true,
+          "comets": true,
+          "labels": true,
+          "constellation:3d": true,
+          "constellation:ai": true,
+          "constellation:documents": true,
+          "constellation:payments": true,
+          "constellation:search": true
+        },
+        "linkVisibility": "focus",
+        "paused": false,
+        "animated": true,
+        "comets": 18,
+        "constellations": [
+          "3d",
+          "ai",
+          "documents",
+          "payments",
+          "search"
+        ],
+        "crumbs": [
+          null
+        ],
+        "labels": 14,
+        "constellationLabels": 5
+      },
+      "3d-cosmos-constellation": {
+        "constellation": "ai",
+        "selected": null,
+        "hovered": null,
+        "focused": null,
+        "matches": [],
+        "nodeCount": 123,
+        "linkCount": 369,
+        "dropped": {
+          "nodes": 0,
+          "links": 0,
+          "invalidLinks": 0,
+          "duplicateNodes": 0
+        },
+        "layers": {
+          "background": true,
+          "clusters": true,
+          "cores": true,
+          "orbits": false,
+          "links": true,
+          "constellations": true,
+          "comets": true,
+          "labels": true,
+          "constellation:3d": true,
+          "constellation:ai": true,
+          "constellation:documents": true,
+          "constellation:payments": true,
+          "constellation:search": true
+        },
+        "linkVisibility": "focus",
+        "paused": false,
+        "animated": true,
+        "comets": 18,
+        "constellations": [
+          "3d",
+          "ai",
+          "documents",
+          "payments",
+          "search"
+        ],
+        "crumbs": [
+          null
+        ],
+        "labels": 36,
+        "constellationLabels": 5
+      },
+      "3d-cosmos-system": {
+        "constellation": null,
+        "selected": null,
+        "hovered": null,
+        "focused": null,
+        "matches": [],
+        "nodeCount": 13,
+        "linkCount": 12,
+        "dropped": {
+          "nodes": 0,
+          "links": 0,
+          "invalidLinks": 0,
+          "duplicateNodes": 0
+        },
+        "layers": {
+          "background": true,
+          "clusters": true,
+          "cores": true,
+          "orbits": true,
+          "links": true,
+          "comets": true,
+          "labels": true
+        },
+        "linkVisibility": "focus",
+        "paused": false,
+        "animated": true,
+        "comets": 0,
+        "constellations": [],
+        "crumbs": [
+          null
+        ],
+        "labels": 6,
+        "constellationLabels": 0
+      }
+    },
+    "cosmosControls": {
+      "orbitRings": true,
+      "afterReclick": "",
+      "afterClick": "agent-0",
+      "afterClear": "",
+      "layers": "background clusters cores links comets labels",
+      "linkVisibility": "all"
+    },
+    "presetSwitch": {
+      "2d": [
+        {
+          "want": "network",
+          "got": "network"
+        },
+        {
+          "want": "radial",
+          "got": "radial"
+        },
+        {
+          "want": "network",
+          "got": "network"
+        },
+        {
+          "want": "hierarchy",
+          "got": "hierarchy"
+        },
+        {
+          "want": "network",
+          "got": "network"
+        },
+        {
+          "want": "clustered",
+          "got": "clustered"
+        },
+        {
+          "want": "radial",
+          "got": "radial"
+        },
+        {
+          "want": "network",
+          "got": "network"
+        },
+        {
+          "want": "radial",
+          "got": "radial"
+        },
+        {
+          "want": "hierarchy",
+          "got": "hierarchy"
+        },
+        {
+          "want": "radial",
+          "got": "radial"
+        },
+        {
+          "want": "clustered",
+          "got": "clustered"
+        },
+        {
+          "want": "hierarchy",
+          "got": "hierarchy"
+        },
+        {
+          "want": "network",
+          "got": "network"
+        },
+        {
+          "want": "hierarchy",
+          "got": "hierarchy"
+        },
+        {
+          "want": "radial",
+          "got": "radial"
+        },
+        {
+          "want": "hierarchy",
+          "got": "hierarchy"
+        },
+        {
+          "want": "clustered",
+          "got": "clustered"
+        },
+        {
+          "want": "clustered",
+          "got": "clustered"
+        },
+        {
+          "want": "network",
+          "got": "network"
+        },
+        {
+          "want": "clustered",
+          "got": "clustered"
+        },
+        {
+          "want": "radial",
+          "got": "radial"
+        },
+        {
+          "want": "clustered",
+          "got": "clustered"
+        },
+        {
+          "want": "hierarchy",
+          "got": "hierarchy"
+        }
+      ],
+      "3d": [
+        {
+          "want": "network",
+          "got": "network"
+        },
+        {
+          "want": "cosmos",
+          "got": "cosmos"
+        },
+        {
+          "want": "network",
+          "got": "network"
+        },
+        {
+          "want": "layered",
+          "got": "layered"
+        },
+        {
+          "want": "cosmos",
+          "got": "cosmos"
+        },
+        {
+          "want": "network",
+          "got": "network"
+        },
+        {
+          "want": "cosmos",
+          "got": "cosmos"
+        },
+        {
+          "want": "layered",
+          "got": "layered"
+        },
+        {
+          "want": "layered",
+          "got": "layered"
+        },
+        {
+          "want": "network",
+          "got": "network"
+        },
+        {
+          "want": "layered",
+          "got": "layered"
+        },
+        {
+          "want": "cosmos",
+          "got": "cosmos"
+        }
+      ]
     }
   },
   "console": []

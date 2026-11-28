@@ -4,6 +4,8 @@ import {
   clampCamera2D,
   fitCamera2D,
   LabelLayer,
+  labelCandidates,
+  chooseLabelSpot,
   lerpCamera2D,
   orbitPosition,
   placeLabels,
@@ -12,6 +14,44 @@ import {
   zoomAt2D,
   resolveLimits,
 } from "../src/core";
+
+describe("labelCandidates", () => {
+  const screen = (n: number) => {
+    const s = new Float32Array(n * 4);
+    for (let i = 0; i < n; i++) s.set([10 + i, 10, 5 + i, 100], i * 4);
+    return s;
+  };
+  const base = (n: number, asked: number[]) => ({ screen: screen(n), states: new Uint8Array(n), selected: -1, hovered: -1, matches: null, width: 2000, height: 100, labelMinPx: 1, text: (i: number) => (asked.push(i), `n${i}`) });
+
+  it("a limit keeps the highest-priority unforced candidates, forced ones always, and asks text only for those", () => {
+    const asked: number[] = [];
+    const out = labelCandidates({ ...base(500, asked), hovered: 3, limit: 10 });
+    expect(out.filter((c) => !c.forced).map((c) => c.index).sort((a, b) => a - b)).toEqual([490, 491, 492, 493, 494, 495, 496, 497, 498, 499]);
+    expect(out.some((c) => c.index === 3 && c.forced)).toBe(true);
+    expect(asked.sort((a, b) => a - b)).toEqual([3, 490, 491, 492, 493, 494, 495, 496, 497, 498, 499]);
+  });
+
+  it("semantic reach: Infinity always competes, a negative never does, the rest by their projected reach", () => {
+    const reach = new Float32Array([Infinity, -1, 30, 5]);
+    const out = labelCandidates({ ...base(4, []), reach, reachMinPx: 22 });
+    expect(out.map((c) => c.index).sort()).toEqual([0, 2]);
+  });
+});
+
+describe("chooseLabelSpot", () => {
+  const box = (x: number, y: number, w: number) => ({ index: 0, text: "x", x, y, w, h: 14 });
+
+  it("takes the first spot clear of names already placed and of node labels, on screen", () => {
+    const spots: [number, number][] = [[100, 100], [300, 100], [500, 100], [700, 100]];
+    // 100 sits on a node label, 300 is too near a placed name, 500 is clear.
+    expect(chooseLabelSpot(spots, [{ x: 330, y: 100 }], [box(80, 92, 60)], 40, 1000, 600, 64)).toEqual([500, 100]);
+  });
+
+  it("none clear: null, never a name on top of another", () => {
+    expect(chooseLabelSpot([[100, 100]], [{ x: 110, y: 100 }], [], 40, 1000, 600, 64)).toBeNull();
+    expect(chooseLabelSpot([[5, 100]], [], [], 40, 1000, 600, 64)).toBeNull();
+  });
+});
 
 describe("placeLabels", () => {
   const c = (index: number, x: number, y: number, priority: number, text = "label", forced = false) => ({ index, x, y, radius: 4, text, priority, forced });

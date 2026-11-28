@@ -72,40 +72,39 @@ uniform sampler2D uMap;
 ${NOISE}
 vec3 surface(float skin, vec3 p, float seed, out vec3 glow){
   glow = vec3(0.);
+  vec3 c = vColor;
 #ifdef TEXTURED
-  return texture(uMap, vec2(atan(p.x, p.z) / 6.2832 + .5, .5 - asin(clamp(p.y, -1., 1.)) / 3.1416)).rgb;
+  c = texture(uMap, vec2(atan(p.x, p.z) / 6.2832 + .5, .5 - asin(clamp(p.y, -1., 1.)) / 3.1416)).rgb;
 #else
   if (skin < 1.5) {
     float lat = p.y;
     float b = fbm3(vec3(p.x * 1.3, lat * (5. + fract(seed * 7.) * 5.), p.z * 1.3) + seed * 13.) + .22 * sin(lat * (10. + seed * 8.) + seed * 9.);
-    return mix(vColor * .32, mix(vColor2, vec3(1.), .08), smoothstep(.3, .78, b));
-  }
-  if (skin < 2.5) {
+    c = mix(vColor * .32, mix(vColor2, vec3(1.), .08), smoothstep(.3, .78, b));
+  } else if (skin < 2.5) {
     float m = fbm3(p * 2.6 + seed * 11.);
-    return mix(vColor * .36, vColor2 * .9, smoothstep(.35, .7, m)) * (.72 + .5 * fbm3(p * 9. + seed * 3.));
-  }
-  if (skin < 3.5) {
+    c = mix(vColor * .36, vColor2 * .9, smoothstep(.35, .7, m)) * (.72 + .5 * fbm3(p * 9. + seed * 3.));
+  } else if (skin < 3.5) {
     float m = fbm3(p * 3. + seed * 5.);
     float crack = smoothstep(.035, .0, abs(fbm3(p * 5.5 + seed * 9.) - .5));
-    return mix(vColor2, vColor, m * .6) * 1.04 - crack * .22 * vColor;
-  }
-  if (skin < 4.5) {
+    c = mix(vColor2, vColor, m * .6) * 1.04 - crack * .22 * vColor;
+  } else if (skin < 4.5) {
     vec3 base = mix(vColor * .42, vColor2 * .78, fbm3(p * 3. + seed));
     float cr = vn3(p * 7. + seed * 21.);
     float rim = smoothstep(.7, .76, cr) * (1. - smoothstep(.76, .84, cr));
     float pit = smoothstep(.76, .9, cr);
-    return base * (1. - pit * .38) + rim * .16;
-  }
-  if (skin < 5.5) {
+    c = base * (1. - pit * .38) + rim * .16;
+  } else if (skin < 5.5) {
     float cr = abs(fbm3(p * 4. + seed * 7.) - .5);
     glow = mix(vColor2, vec3(1., .55, .15), .5) * smoothstep(.07, .0, cr) * 1.4;
-    return vColor * .16;
+    c = vColor * .16;
+  } else {
+    float land = smoothstep(.5, .56, fbm3(p * 2.2 + seed * 17.));
+    vec3 sea = mix(vColor * .55, vColor2 * .85, land);
+    float clouds = smoothstep(.55, .78, fbm3(p * 3.5 + vec3(uTime * .02) + seed * 3.));
+    c = mix(sea, vec3(.95), clouds * .7);
   }
-  float land = smoothstep(.5, .56, fbm3(p * 2.2 + seed * 17.));
-  vec3 c = mix(vColor * .55, vColor2 * .85, land);
-  float clouds = smoothstep(.55, .78, fbm3(p * 3.5 + vec3(uTime * .02) + seed * 3.));
-  return mix(c, vec3(.95), clouds * .7);
 #endif
+  return c;
 }
 void main(){
   float d = length(vUv), kind = vData.x, seed = vData.y, state = vData.z, heat = vRing.w;
@@ -122,8 +121,8 @@ void main(){
   } else if (kind > 3.5 && kind < 4.5) {
     // A galaxy's core as a node: a bright, smooth nucleus (the cores layer draws the bulge around it).
     float nuc = exp(-d * d * 2.2);
-    c = mix(vColor, vec3(1., .95, .86), .72) * nuc * 1.3 + vColor * pow(max(0., 1. - d / 3.2), 2.) * .22;
-    a = smoothstep(1., .55, d) * .9;
+    c = mix(vColor, vec3(1., .95, .86), .72) * nuc * .9 + vColor * pow(max(0., 1. - d / 3.2), 2.) * .18;
+    a = 0.;
   } else {
     float edge = 1.;
     if (kind > 1.5 && kind < 2.5) edge = .8 + .2 * vnoise(vec2(atan(vUv.y, vUv.x) * 1.7 + seed * 40., seed * 7.));
@@ -328,7 +327,19 @@ function lookCache(meta: CosmosMeta | undefined): LookCache {
   });
   return c;
 }
-const pick3 = (own: Float32Array, i: number, fallback: [number, number, number]): [number, number, number] => (Number.isNaN(own[i * 3]) ? fallback : [own[i * 3], own[i * 3 + 1], own[i * 3 + 2]]);
+/** Writes the look's own colour, else `base` mixed toward `toward` by `t`, at `out[at..]`. No allocation. */
+function put3(out: Float32Array, at: number, own: Float32Array, i: number, base: ArrayLike<number>, b0: number, toward: readonly number[], t: number) {
+  if (!Number.isNaN(own[i * 3])) {
+    out[at] = own[i * 3];
+    out[at + 1] = own[i * 3 + 1];
+    out[at + 2] = own[i * 3 + 2];
+    return;
+  }
+  out[at] = base[b0] + (toward[0] - base[b0]) * t;
+  out[at + 1] = base[b0 + 1] + (toward[1] - base[b0 + 1]) * t;
+  out[at + 2] = base[b0 + 2] + (toward[2] - base[b0 + 2]) * t;
+}
+const WHITE = [1, 1, 1] as const, SKY = [0.6, 0.8, 1] as const, DUST = [0.95, 0.9, 0.82] as const;
 
 const BODY_ATTRS = [
   { name: "iPos", size: 3 },
@@ -349,17 +360,15 @@ function writeBody(out: Float32Array, at: number, i: number, f: LayerFrame3D, ca
   const p = f.positions;
   const light = b.system >= 0 ? b.system : i;
   const st = ringState(i, f);
-  const theme: [number, number, number] = [f.colors[i * 3], f.colors[i * 3 + 1], f.colors[i * 3 + 2]];
-  const c1 = pick3(cache.primary, i, theme);
-  const c2 = pick3(cache.secondary, i, mix3(c1, [1, 1, 1], b.look.skin === 3 ? 0.65 : 0.45));
-  const atmo = pick3(cache.atmo, i, mix3(c1, [0.6, 0.8, 1], 0.5));
-  const ring = pick3(cache.ring, i, mix3(c1, [0.95, 0.9, 0.82], 0.5));
   out[at] = p[i * 3];
   out[at + 1] = p[i * 3 + 1];
   out[at + 2] = p[i * 3 + 2];
   out[at + 3] = f.sizes[i];
-  out.set(c1, at + 4);
-  out.set(c2, at + 7);
+  // The primary colour (the look's, else the theme's), then the others derived from it.
+  put3(out, at + 4, cache.primary, i, f.colors, i * 3, WHITE, 0);
+  put3(out, at + 7, cache.secondary, i, out, at + 4, WHITE, b.look.skin === 3 ? 0.65 : 0.45);
+  put3(out, at + 21, cache.atmo, i, out, at + 4, SKY, 0.5);
+  put3(out, at + 28, cache.ring, i, out, at + 4, DUST, 0.5);
   out[at + 10] = p[light * 3];
   out[at + 11] = p[light * 3 + 1];
   out[at + 12] = p[light * 3 + 2];
@@ -371,12 +380,10 @@ function writeBody(out: Float32Array, at: number, i: number, f: LayerFrame3D, ca
   out[at + 18] = b.look.atmosphere?.thickness ?? 0;
   out[at + 19] = b.look.atmosphere?.glow ?? 0;
   out[at + 20] = b.look.rings?.opacity ?? 0;
-  out.set(atmo, at + 21);
   out[at + 24] = b.look.rings?.inner ?? 0;
   out[at + 25] = b.look.rings?.outer ?? 0;
   out[at + 26] = b.look.rings?.tilt ?? 0;
   out[at + 27] = b.kind === COMET ? 0 : b.tail;
-  out.set(ring, at + 28);
 }
 
 export function cosmosRenderers(options: CosmosRenderOptions & Pick<CosmosLayoutOptions, "constellations"> = {}): GraphRenderers3D {
@@ -762,17 +769,22 @@ export function cosmosLight(options: CosmosLightOptions = {}): GraphLayer3D {
       ribbons.begin(f);
       const m = metaOf(f);
       if (f.linkVisibility !== "none" && m.gravity) {
-        const anyFocus = f.focus >= 0 || (f.matches?.size ?? 0) > 0;
         const p = f.positions;
-        for (const l of f.graph.links) {
+        // "focus": the sky stays clean until you ask, so only the focus's own light, and none with nothing focused.
+        // Walking just its links keeps that mode cheap however big the graph.
+        const focusOnly = f.linkVisibility === "focus";
+        const list = !focusOnly ? null : f.focus >= 0 ? (f.graph.incident[f.focus] ?? []) : [];
+        const count = list ? list.length : f.graph.links.length;
+        for (let k = 0; k < count; k++) {
+          const l = list ? f.graph.links[list[k]] : f.graph.links[k];
           if (m.gravity[l.index] !== 0 || l.link.synthetic) continue;
           const state = f.linkStates[l.index];
-          if (f.linkVisibility === "focus" && anyFocus && state !== LINK_ACTIVE) continue;
+          if (focusOnly && state !== LINK_ACTIVE) continue;
           if (state === LINK_DIMMED) continue;
           const ba = m.bodies[l.a], bb = m.bodies[l.b];
           const same = ba.galaxy >= 0 && ba.galaxy === bb.galaxy && ba.kind !== COMET && bb.kind !== COMET;
           const active = state === LINK_ACTIVE;
-          const alpha = active ? 0.9 : same ? Math.min(0.24, 0.08 + Math.log2(1 + l.weight) * 0.04) : 0.06;
+          const alpha = active ? 0.9 : same ? Math.min(0.2, 0.06 + Math.log2(1 + l.weight) * 0.035) : 0.07;
           let g: typeof arc | null = null;
           if (same) {
             const gal = m.galaxies[ba.galaxy];
@@ -832,7 +844,7 @@ export function cosmosConstellations(): GraphLayer3D {
           const selected = f.constellation === s.id;
           const dim = f.constellation !== null && f.constellation !== undefined && !selected;
           for (const [a, b] of s.edges)
-            s.ribbons.add(p[a * 3], p[a * 3 + 1], p[a * 3 + 2], p[b * 3], p[b * 3 + 1], p[b * 3 + 2], s.color[0], s.color[1], s.color[2], selected ? 0.8 : dim ? 0.08 : 0.3, selected ? 2.2 : 1.2, selected ? 0 : 9);
+            s.ribbons.add(p[a * 3], p[a * 3 + 1], p[a * 3 + 2], p[b * 3], p[b * 3 + 1], p[b * 3 + 2], s.color[0], s.color[1], s.color[2], selected ? 0.8 : dim ? 0.05 : 0.17, selected ? 2.2 : 1.1, selected ? 0 : 7);
         }
         s.ribbons.end();
       }
@@ -865,10 +877,10 @@ void main(){
   p += j * L * .16 * s;
   vec4 v = viewMatrix * vec4(p, 1.);
   float pxPerWorld = projectionMatrix[1][1] * uViewport.y * .5 / max(1., -v.z);
-  float size = max(mix(iStyle.x, iStyle.x * .3, s) * (.6 + .8 * fract(aP.y * 3.7)), 1.4 / pxPerWorld);
+  float size = max(mix(iStyle.x, iStyle.x * .3, s) * (.6 + .8 * fract(aP.y * 3.7)), 1.8 / pxPerWorld);
   v.xy += position.xy * size;
   vUv = position.xy; vColor = iColor;
-  vFade = pow(1. - s, 1.5) * iStyle.y;
+  vFade = pow(1. - s, 1.3) * iStyle.y * 1.8;
   gl_Position = projectionMatrix * v;
 }`;
 const TAIL_FS = /* glsl */ `

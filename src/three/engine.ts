@@ -4,7 +4,7 @@ import { groupClusters } from "../clusters";
 import { colorFor, parseColor } from "../color";
 import { computeLinkStates, computeNodeStates, focusOf, NODE_ACTIVE, NODE_NEIGHBOR, pickScreen } from "../interaction";
 import { effectiveLinkVisibility, isLayerVisible } from "../layers";
-import { LabelLayer, labelCandidates, placeLabels, type ClusterLabel, type ConstellationLabel } from "../labels";
+import { chooseLabelSpot, LabelLayer, labelCandidates, placeLabels, type ClusterLabel, type ConstellationLabel, type PlacedLabel } from "../labels";
 import { createLayoutRunner, type GraphLayout, type LayoutRunner } from "../layout/contract";
 import { truncateLabel, type GraphLimits } from "../limits";
 import type { GraphCluster, IndexedGraph, Vec3 } from "../types";
@@ -136,6 +136,7 @@ export class StageEngine {
   private constellation: string | null = null;
   private constellationMembers: Set<number> | null = null;
   private effectiveMatches: Set<number> | null = null;
+  private texts: (string | undefined)[] = [];
   private selected = -1;
   private hovered = -1;
   private focused = -1;
@@ -286,6 +287,7 @@ export class StageEngine {
       this.labels = new LabelLayer(this.labelRoot, { pool: limits.maxLabels + limits.maxForcedLabels });
     }
     this.limits = limits;
+    this.texts = [];
   }
 
   setReducedMotion(r: boolean) {
@@ -419,6 +421,7 @@ export class StageEngine {
       const s = this.opts.nodeSize ? this.opts.nodeSize(i, meta) : node.size;
       this.sizes[i] = typeof s === "number" && Number.isFinite(s) && s > 0 ? s : 2 + Math.min(10, Math.sqrt(g.degree[i]) * 1.6);
     }
+    this.texts = [];
     const reach = this.opts.labelReach;
     if (reach) {
       const w = this.reachWorld && this.reachWorld.length === g.nodes.length ? this.reachWorld : new Float32Array(g.nodes.length);
@@ -722,6 +725,13 @@ export class StageEngine {
     return { ms: performance.now() - t0 };
   }
 
+  /** A node's label, cut to the limit, built once per node until the labels or limits change. */
+  private textOf(i: number, max: number): string {
+    const t = this.texts[i];
+    if (t !== undefined) return t;
+    return (this.texts[i] = truncateLabel(this.opts.labelOf(i), max));
+  }
+
   private paintLabels(g: IndexedGraph, W: number, H: number, view: ArrayLike<number>, f: number) {
     const max = this.limits.maxLabelLength;
     const cands = labelCandidates({
@@ -735,7 +745,8 @@ export class StageEngine {
       labelMinPx: this.limits.labelMinPx,
       reach: this.reachWorld ? this.reachPx : undefined,
       reachMinPx: this.limits.zoomLabelPx,
-      text: (i) => truncateLabel(this.opts.labelOf(i), max),
+      text: (i) => this.textOf(i, max),
+      limit: this.limits.maxLabels * 4,
       focused: this.focused,
       focusNeighbors: this.focused >= 0 ? g.neighbors[this.focused] : undefined,
       cullOthers: this.neighborhood,
@@ -770,38 +781,48 @@ export class StageEngine {
       cl.push({ id: c.id, text: truncateLabel(text, max), x: W / 2 + (x / -z) * f, y: Math.max(18, H / 2 - (y / -z) * f - lift - 10), color: c.color ?? this.memberHex(c) ?? colorFor(c.id) });
     }
     this.labels.renderClusters(cl);
-    this.paintConstellationLabels(W, H, view, f);
+    this.paintConstellationLabels(W, H, view, f, this.visible("labels") ? placed : []);
   }
 
-  /** Each visible constellation's name over its members, once its figure is big enough on screen to read. */
-  private paintConstellationLabels(W: number, H: number, view: ArrayLike<number>, f: number) {
+  /**
+   * Each visible constellation's name, once its figure is big enough on screen
+   * to read. Wide figures overlap (their middles crowd the centre of the sky),
+   * so each name takes the first clear spot, nearest its figure's middle first:
+   * the middle itself, else one of its own members. The selected one goes first.
+   */
+  private paintConstellationLabels(W: number, H: number, view: ArrayLike<number>, f: number, nodeLabels: PlacedLabel[]) {
+    const CLEAR = 64;
     const out: ConstellationLabel[] = [];
-    const list = this.visible("constellations") && this.visible("labels") ? constellationsOf(this.runner?.meta) : [];
+    const list = this.visible("constellations") && this.visible("labels") ? [...constellationsOf(this.runner?.meta)] : [];
+    list.sort((a, b) => (a.id === this.constellation ? -1 : b.id === this.constellation ? 1 : 0));
     const p = this.live;
     const max = this.limits.maxLabelLength;
     for (const c of list) {
       if (!this.visible(`constellation:${c.id}`) || !c.members.length) continue;
-      let sx = 0, sy = 0, k = 0, minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      const pts: [number, number][] = [];
+      let sx = 0, sy = 0, minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const i of c.members) {
         const x = p[i * 3], y = p[i * 3 + 1], z = p[i * 3 + 2];
         const vz = view[2] * x + view[6] * y + view[10] * z + view[14];
         if (vz >= 0) continue;
         const px = W / 2 + ((view[0] * x + view[4] * y + view[8] * z + view[12]) / -vz) * f;
         const py = H / 2 - ((view[1] * x + view[5] * y + view[9] * z + view[13]) / -vz) * f;
+        pts.push([px, py]);
         sx += px;
         sy += py;
-        k++;
         minX = Math.min(minX, px);
         maxX = Math.max(maxX, px);
         minY = Math.min(minY, py);
         maxY = Math.max(maxY, py);
       }
-      if (!k) continue;
-      const span = Math.max(maxX - minX, maxY - minY);
-      const x = sx / k, y = sy / k;
-      if (c.members.length > 1 && span < 24) continue;
-      if (x < -40 || y < -20 || x > W + 40 || y > H + 20) continue;
-      out.push({ id: c.id, text: truncateLabel(c.label, max), x, y: Math.max(16, y), color: typeof c.color === "string" ? c.color : colorFor(c.id), selected: c.id === this.constellation });
+      if (!pts.length) continue;
+      if (c.members.length > 1 && Math.max(maxX - minX, maxY - minY) < 24) continue;
+      const mx = sx / pts.length, my = sy / pts.length;
+      const spots: [number, number][] = [[mx, my], ...pts.map(([x, y]): [number, number] => [x, y - 14]).sort((a, b) => Math.hypot(a[0] - mx, a[1] - my) - Math.hypot(b[0] - mx, b[1] - my))];
+      const text = truncateLabel(c.label, max);
+      const spot = chooseLabelSpot(spots, out, nodeLabels, Array.from(text).length * 7.6, W, H, CLEAR);
+      if (!spot) continue;
+      out.push({ id: c.id, text, x: spot[0], y: spot[1], color: typeof c.color === "string" ? c.color : colorFor(c.id), selected: c.id === this.constellation });
     }
     this.labels.renderConstellations(out, (id) => this.cb.onConstellation?.(id));
   }

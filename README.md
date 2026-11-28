@@ -77,7 +77,62 @@ labels and neighbourhood mode.
 | **`network`** (2D, the default): a force-directed network.<br>![2D network](docs/presets/2d-network.png) | **`radial`** (2D): an ego view centred on the focused node, else the selection, re-centred as it moves.<br>![2D radial](docs/presets/2d-radial.png) |
 | **`hierarchy`** (2D): a layered tree for directed links, roots on top.<br>![2D hierarchy](docs/presets/2d-hierarchy.png) | **`clustered`** (2D): a map grouped by node type, a labelled hull per type.<br>![2D clustered](docs/presets/2d-clustered.png) |
 | **`network`** (3D, the default): lit spheres and lines.<br>![3D network](docs/presets/3d-network.png) | **`layered`** (3D): a plane per node type, or per bucket of a date or number field.<br>![3D layered](docs/presets/3d-layered.png) |
-| **`cosmos`** (3D): a galaxy per type, each with a bright core and a shape drawn from its data; stars, orbiting planets, asteroids, and galaxies that turn and orbit the centre. The reference example of how far the plug points go.<br>![3D cosmos](docs/presets/3d-cosmos.png) | |
+| **`cosmos`** (3D): gravity places, light draws. Stars with orbiting planets and moons, optional spiral galaxies, free systems spread by their links, comets and constellations. Shown with a star selected: its light arcs out to everything it links to. See [The cosmos](#the-cosmos).<br>![3D cosmos](docs/presets/3d-cosmos.png) | |
+
+### The cosmos
+
+A knowledge graph has two kinds of relation, and the cosmos treats them
+differently. **Gravity** (membership: written-in, part-of, member-of) decides
+what orbits what, and is the only thing that places a body. **Light** (every
+other link) is drawn as soft arcs between bodies and moves nothing, except to
+spread free systems so related ones sit near each other. Say which is which
+with **lenses**, plain JSON on the `cosmos` prop:
+
+```tsx
+<GraphView3D
+  data={data}
+  preset="cosmos"
+  cosmos={{
+    systems: { by: { field: "language" } },          // or { relation: "written-in" }, "hubs" (default), "none"
+    galaxies: { by: { field: "family" } },           // optional; or { relation: "member-of" }
+    sort: { by: { field: "releasedAt" }, dir: "asc" },// orbit order and order along the arms; never regroups
+    constellations: { by: { field: "features" } },  // or [{ id, label, match: { relation | field | linkedTo } }]
+    comets: ["multi-membership", { field: "releasedAt", within: "14d" }],
+  }}
+/>
+```
+
+- **Every centre is a node.** A star or a galaxy's core is a real node, or one
+  the view makes per field value (`cosmos:system:<value>`,
+  `cosmos:galaxy:<value>`, `synthetic: true`). It can be selected, labelled
+  and searched, and counts against the limits.
+- **Systems always orbit**: planets round their star, moons round their planet.
+  **Galaxies are optional**; without them, systems float free.
+- **Changing a lens or the sort is a flight, not a reload**: bodies fly from
+  their old orbits to their new ones (instant under reduced motion).
+- **Comets**: a node in several systems travels an eccentric loop through each
+  of them; a node with a recent time field trails a tail. Tails are drawn on
+  the GPU, in their own `comets` layer.
+- **Constellations** are figures over the sky, each its own layer, with a
+  clickable name (`data-fancy-graph-constellation-label`) and a controlled
+  selection (`selectedConstellation`).
+- **Semantic zoom labels** (on by default): galaxy and constellation names from
+  far, star names closer, planets and moons closer still. Selecting a star
+  frames its system, a core its galaxy; `getBreadcrumbs()` /
+  `onBreadcrumbsChange` give the way back out.
+- **Each body's look comes from its data**: `node.cosmos.skin` (`rocky`, `gas`,
+  `ice`, `cratered`, `lava`, `ocean`), `atmosphere`, `rings` and `node.size`,
+  all procedural shaders, or `node.cosmos.texture` for an image your app
+  supplies (the kit ships none).
+
+| | |
+|---|---|
+| **Galaxies**: `galaxies: { by: { field: "type" } }`, a spiral galaxy per node type around its core.<br>![Cosmos galaxies](docs/presets/3d-cosmos-galaxies.png) | **A system up close**: skins, atmospheres, rings and moons, all from node fields, with the orbit paths on.<br>![Cosmos system](docs/presets/3d-cosmos-system.png) |
+| **The kit dependency map**: systems by language, a constellation per feature, comets for polyglots and recent releases.<br>![Cosmos kit map](docs/presets/3d-cosmos-kit.png) | **A constellation selected**: its figure lit and its members named.<br>![Cosmos constellation](docs/presets/3d-cosmos-constellation.png) |
+
+Upgrading from 0.3.0, where the cosmos made a galaxy per type by itself: pass
+`cosmos={{ galaxies: { by: { field: "type" } } }}`. The
+[changelog](./CHANGELOG.md) lists the rest.
 
 ### Selection, layers and the view controls
 
@@ -90,7 +145,7 @@ on and off through a controlled JSON prop:
 | 2D `network`, `radial`, `hierarchy`; 3D `network` | `links`, `labels` |
 | 2D `clustered` | `links`, `labels`, `clusters` |
 | 3D `layered` | `links`, `labels`, `clusters` (the planes) |
-| 3D `cosmos` | `background` (sky), `clusters` (galaxies), `cores` (galactic cores), `orbits` (orbit paths: off), `links`, `labels` |
+| 3D `cosmos` | `background` (sky), `clusters` (galaxies), `cores` (galactic cores), `orbits` (orbit paths: off), `links` (light), `comets` (comet tails), `labels`; with constellations, `constellations` and one `constellation:<id>` each |
 
 ```tsx
 const [layers, setLayers] = useState({ orbits: true });
@@ -202,19 +257,21 @@ Built in, all written for this package: `forceLayout()` (Barnes-Hut, 2D or 3D,
 screen coordinates and each node's state. 3D: layers. `createInstancedLayer`
 takes your own GLSL 3 shaders and gives you instancing, additive or
 premultiplied blending, back-to-front order and fresh positions every frame.
-The `cosmos` preset (galaxies with cores, stars, planets with rings,
-asteroids, a sky, dust) is built with nothing else; `src/three/presets/` is the
-worked example.
+The `cosmos` preset (galaxies with cores, stars, planets with skins,
+atmospheres and rings, moons, comets with GPU tails, light arcs,
+constellations, a sky, dust) is built with nothing else;
+`src/three/presets/` is the worked example.
 
-Its galaxies are procedural but deterministic: each one's arms, twist, size,
-tilt, bulge and warmth come from its type id and how its members link, so the
-same graph always looks the same. Planets orbit stars, systems turn about their
-galaxy's core and galaxies orbit the centre, all frozen by `paused` and reduced
-motion. A node can pin its place with an optional JSON field:
-`cosmos: { galaxy: [x, y, z] }` puts its galaxy's core there (and stops it
-orbiting), `cosmos: { offset: [x, y] }` puts the node there relative to its
-galaxy's core, in the disc. Bad values are ignored with a dev warning, never
-thrown; see [AGENTS.md](./AGENTS.md#the-cosmos).
+It is deterministic: the same data is the same sky on every load, whatever its
+input order, and galaxies take their shape (arms, twist, size, tilt, bulge,
+warmth) from their key and how their members link. Planets orbit stars, moons
+orbit planets, systems turn about their galaxy's core and the universe turns
+slowly about its centre, all frozen by `paused` and reduced motion. A node can
+pin its place with an optional JSON field: `cosmos: { galaxy: [x, y, z] }` puts
+its galaxy's core there (and stops it orbiting), `cosmos: { offset: [x, y] }`
+puts the node there relative to its galaxy's core (or, outside a galaxy, its
+star). Bad values are ignored with a dev warning, never thrown; see
+[AGENTS.md](./AGENTS.md#the-cosmos).
 
 ### What the kit owns
 
@@ -226,9 +283,11 @@ ring, neighbourhood mode). Every limit is configurable through `limits`.
 
 ## Performance (measured, not promised)
 
-Measured 2026-11-26 with this repo's own harness (`bench/`), synthetic
+Measured 2026-11-28 with this repo's own harness (`bench/`), synthetic
 knowledge graphs shaped like the first consumer's (eight node types, links
-mostly within a type). Raw numbers: `bench/results/*.json`.
+mostly within a type). The 3D rows are the cosmos as that consumer configures
+it, a galaxy per type, so each graph carries eight synthetic core nodes too
+(658 and 4,008 bodies). Raw numbers: `bench/results/*.json`.
 
 **Frame cost**: the time to produce one frame (layout step, projection,
 picking buffer, labels, draw submission), in a headless Chromium 159 at
@@ -239,41 +298,46 @@ GPU: NVIDIA RTX 3070 through ANGLE / Direct3D 11.
 
 | View | Nodes / links | Frame cost p50 / p95 / max (ms) | Frame interval p50 / p95 (ms) |
 |---|---|---|---|
-| 2D canvas | 650 / 900 | 0.2 / 0.3 / 0.7 | 16.7 / 16.8 |
-| 2D canvas | 4,000 / 6,000 | 0.8 / 1.2 / 2.1 | 16.7 / 16.8 |
-| 3D cosmos | 650 / 900 | 0.3 / 0.5 / 0.6 | 16.7 / 16.7 |
-| 3D cosmos | 4,000 / 6,000 | 1.0 / 1.5 / 2.1 | 16.7 / 16.8 |
+| 2D canvas | 650 / 900 | 0.2 / 0.4 / 0.8 | 16.7 / 16.7 |
+| 2D canvas | 4,000 / 6,000 | 0.8 / 1.5 / 2.2 | 16.7 / 16.8 |
+| 3D cosmos | 650 / 900 | 0.5 / 0.7 / 0.9 | 16.7 / 16.7 |
+| 3D cosmos | 4,000 / 6,000 | 2.2 / 2.7 / 3.2 | 16.7 / 16.8 |
 
-Run to run, these move by a few tenths of a millisecond: two back-to-back runs
-of the previous build (before presets) on the same machine measured 0.9 and 1.4
-(2D), and 1.0 and 1.4 (3D), ms p50 at 4,000 nodes.
+The 0.4.0 cosmos costs more per frame than 0.3.0's (1.0 ms p50 at 4,000
+nodes, same harness): each body now carries its look (skin, atmosphere, rings,
+a second colour), and labels are ranked by what they name. It stays a small
+part of a 16.7 ms frame, and the frame interval is unchanged. Run to run, these
+move by a few tenths of a millisecond.
 
 No GPU (SwiftShader, a CPU rasteriser; a floor for weak hardware, 10-frame
 samples):
 
 | View | Nodes / links | Frame cost p50 / p95 (ms) | Frame interval p50 / p95 (ms) |
 |---|---|---|---|
-| 2D canvas | 650 / 900 | 0.4 / 0.6 | 16.7 / 16.7 |
-| 2D canvas | 4,000 / 6,000 | 0.9 / 1.4 | 16.7 / 16.8 |
-| 3D cosmos | 650 / 900 | 0.5 / 0.7 | 33.3 / 33.4 |
-| 3D cosmos | 4,000 / 6,000 | 2.1 / 2.8 | 83.4 / 149.9 |
+| 2D canvas | 650 / 900 | 0.4 / 0.8 | 16.7 / 16.7 |
+| 2D canvas | 4,000 / 6,000 | 1.4 / 1.5 | 16.7 / 16.7 |
+| 3D cosmos | 650 / 900 | 0.9 / 2.0 | 33.4 / 50.1 |
+| 3D cosmos | 4,000 / 6,000 | 7.2 / 15.8 | 133.3 / 250.1 |
 
-Without a GPU the 3D cosmos's frame cost stays low while its frame interval
-grows, so the time goes to rasterising (its glows, galaxy discs and dust are
-large-area shader work), not to the kit. The 2D view is the better choice there.
+Without a GPU the 3D cosmos's frame interval grows far past its frame cost, so
+the time goes to rasterising (its glows, procedural surfaces, galaxy discs and
+dust are large-area shader work), not to the kit. The 2D view is the better
+choice there.
 
-**Layout cost** (Node 24, per step):
+**Layout cost** (Node 24):
 
 | Layout | Nodes / links | Step p50 / p95 (ms) |
 |---|---|---|
-| force, 2D | 650 / 900 | 0.7 / 1.5 |
-| force, 2D | 4,000 / 6,000 | 6.3 / 8.6 |
-| force, 3D | 4,000 / 6,000 | 12.5 / 15.7 |
-| cosmos orbits (every frame) | 4,000 / 6,000 | 0.12 / 0.16 |
+| force, 2D | 650 / 900 | 1.0 / 1.8 |
+| force, 2D | 4,000 / 6,000 | 7.1 / 11.3 |
+| force, 3D | 4,000 / 6,000 | 12.9 / 18.7 |
+| cosmos orbits (every frame) | 4,000 / 6,000 | 0.28 / 0.48 |
 
-A force step at 4,000 nodes takes much of a frame, which is why
-`workerLayout` moves built-in layouts off the main thread above
-`limits.workerThreshold` (1,500 nodes by default).
+The cosmos also does its placement once, when the data or a lens changes: 47
+ms at 650 nodes and 257 ms at 4,000 (spreading free systems by their links is
+most of it; `limits.maxSpreadTicks` bounds it). A force step at 4,000 nodes
+takes much of a frame, which is why `workerLayout` moves built-in layouts off
+the main thread above `limits.workerThreshold` (1,500 nodes by default).
 
 ## License
 

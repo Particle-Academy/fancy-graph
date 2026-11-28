@@ -133,6 +133,19 @@ describe("light: curved arcs that follow the arms and glow on focus", () => {
     }
   });
 
+  it("the sky stays clean until you ask: in \"focus\" mode, no light until something is focused, then only its own", () => {
+    const data = relationData();
+    const s = mount({ data, cosmos: { systems: { by: { relation: ["written-in", "part-of"] } } }, reducedMotion: true, flyOnSelect: false });
+    s.frames(1);
+    const geo = (s.scene.getObjectsByProperty("name", "cosmos-light")[0] as THREE.Mesh).geometry as THREE.InstancedBufferGeometry;
+    expect(geo.instanceCount).toBe(0);
+    act(() => s.ref.current!.select("p1"));
+    s.frames(1);
+    const own = data.links.filter((l) => (l.source === "p1" || l.target === "p1") && l.kind !== "written-in" && l.kind !== "part-of").length;
+    expect(own).toBeGreaterThan(0);
+    expect(geo.instanceCount).toBe(own * 10);
+  });
+
   it("the light layer draws only light (never gravity), as arcs, brighter for the focus", () => {
     const data = relationData();
     const s = mount({ data, cosmos: { systems: { by: { relation: ["written-in", "part-of"] } } }, reducedMotion: true, linkVisibility: "all" });
@@ -274,6 +287,22 @@ describe("constellations: their own layer, selection and handles", () => {
     const ai = s.ref.current!.getConstellations().find((c) => c.id === "ai")!;
     // Its members are highlighted and labelled, like search matches.
     expect(shownLabels(s).some((id) => ai.members.includes(id))).toBe(true);
+  });
+
+  it("names never pile up: each label sits at its own member, apart from the others", () => {
+    const s = mount({ data: kitData(120), cosmos: { systems: { by: { field: "language" } }, comets: false, constellations: { by: { field: "features" } } }, reducedMotion: true });
+    s.frames(2);
+    const at = [...s.stage.overlayRoot.querySelectorAll<HTMLElement>("[data-fancy-graph-constellation-label]")]
+      .filter((e) => e.style.display !== "none")
+      .map((e) => /translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(e.style.transform)!.slice(1).map(Number));
+    expect(at.length).toBe(5);
+    for (let i = 0; i < at.length; i++) for (let j = i + 1; j < at.length; j++) expect(Math.hypot(at[i][0] - at[j][0], at[i][1] - at[j][1])).toBeGreaterThan(48);
+    // Nor on a node's label: each name's middle is clear of every node label's box.
+    const boxes = [...s.stage.overlayRoot.querySelectorAll<HTMLElement>("[data-fancy-graph-label]")]
+      .filter((e) => e.style.display !== "none")
+      .map((e) => [.../translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(e.style.transform)!.slice(1).map(Number), (e.textContent ?? "").length * 6.2]);
+    expect(boxes.length).toBeGreaterThan(0);
+    for (const [x, y] of at) for (const [bx, by, bw] of boxes) expect(x > bx - 4 && x < bx + bw + 4 && y > by - 6 && y < by + 20, `${x},${y} in ${bx},${by}`).toBe(false);
   });
 
   it("the handle selects one for an agent", () => {

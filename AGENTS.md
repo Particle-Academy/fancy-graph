@@ -71,7 +71,7 @@ Start from a preset, then override pieces. 2D (`<GraphView preset=...>`):
 `network` (default, force-directed), `radial` (ego view on the focus, else the
 selection), `hierarchy` (directed tree, roots on top), `clustered` (grouped by
 `group`, labelled hulls). 3D (`<GraphView3D preset=...>`): `network` (default,
-spheres and lines), `cosmos` (galaxies per type), `layered` (a plane per type,
+spheres and lines), `cosmos` (stars, planets and moons by gravity, optional galaxies, comets, constellations; below), `layered` (a plane per type,
 or `layeredPreset({ layerBy: { field: "createdAt", buckets: 6 } })` for time).
 Screenshots: [README, Views](./README.md#views-ready-made-presets).
 
@@ -84,19 +84,78 @@ Screenshots: [README, Views](./README.md#views-ready-made-presets).
 
 ### The cosmos
 
-Each node type is a galaxy with a bright core. Its shape (arm count, twist,
-size, tilt, bulge, warmth, arm spread) comes from the type id and its members'
-count and links, deterministically: the same data is the same universe, other
-data looks different. Planets and asteroids orbit their stars, systems turn
-about their galaxy's core, galaxies orbit the graph centre (the origin);
-`paused` and reduced motion freeze all of it. Speeds:
-`cosmosPreset({ galaxyOrbitSpeed, spinSpeed })` (0 stops a level).
+Gravity places, light draws. Tell it which relations are gravity with
+**lenses**, plain JSON on the `cosmos` prop (or `cosmosPreset(lenses)`):
 
-Pin placement with an optional `cosmos` field on a node, plain JSON:
+```tsx
+<GraphView3D data={data} preset="cosmos" cosmos={{
+  systems: { by: { relation: "written-in" } },  // SOURCE orbits TARGET (the star); a source of a planet is a moon.
+                                                // Or { field: "language" } (a star per value), "hubs" (default), "none" (a starfield).
+  galaxies: { by: { field: "family" } },        // optional; or { relation: "member-of" } (star -> core)
+  sort: { by: "degree", dir: "desc" },          // "degree" | "label" | "id" | { field }; orbit order, never regroups
+  constellations: [{ id: "ai", label: "AI", match: { field: "features", value: "ai" } }], // or { relation } / { linkedTo: id }; or { by: { field } }
+  comets: ["multi-membership", { field: "updatedAt", within: "14d" }],                   // default "multi-membership"; false = none
+  labels: "semantic",                           // default; "size" ranks labels by size on screen only
+}} />
+```
+
+- **Upgrading from 0.3.0** (galaxy per type was automatic):
+  `cosmos={{ galaxies: { by: { field: "type" } } }}`. `field: "type"` (and
+  `"group"`) read `node.group`; any other field reads `node.data[field]` first.
+  A field holding an array is several memberships.
+- **Centres are nodes.** With a `{ field }` lens the view adds one node per
+  value: `cosmos:system:<value>` / `cosmos:galaxy:<value>`, labelled with the
+  value, `synthetic: true`. They count in `nodeCount`, can be selected and
+  searched, and count against `maxNodes` / `maxLinks`. Skip `node.synthetic`
+  when you list nodes. Using `layout={cosmosLayout(...)}` without the preset?
+  Pass `data={prepareCosmos(data, lenses)}`.
+- **What is drawn**: gravity is the orbit (the `orbits` layer shows the rings);
+  light is everything else, as arcs that glow for the focus. In the default
+  `"focus"` link mode nothing is drawn until something is focused.
+- **Comets**: several memberships make a traveller on an eccentric loop through
+  each system (home first); a time field within `within` of `now` (default:
+  load time) makes an arrival with a tail, longer for newer. Without both,
+  the first membership wins and the rest are light.
+- **Constellations**: `selectedConstellation` / `defaultSelectedConstellation`
+  / `onSelectedConstellationChange(id, { source })`, handle
+  `selectConstellation(id, { source })` (false for an unknown id) and
+  `getConstellations()` (`{ id, label, members: ids[] }`). Selecting one
+  highlights its members and frames them. Each is a layer,
+  `constellation:<id>`, under the `constellations` switch. Name handle:
+  `[data-fancy-graph-constellation-label="<id>"]` (clickable); root:
+  `data-fancy-graph-constellation`.
+- **Flight and breadcrumbs**: selecting a star frames its system, a core its
+  galaxy. `getBreadcrumbs()` gives `[{ id: null, label: "Universe" }, core,
+  star, planet, node]`; `onBreadcrumbsChange(crumbs)` fires when it changes;
+  the root carries `data-fancy-graph-breadcrumbs` (ids joined by ` > `).
+  Select a crumb's id to climb back out, `select(null)` for the universe.
+- **Looks from data**, on `node.cosmos`, all optional, over defaults per kind:
+  `skin: "rocky" | "gas" | "ice" | "cratered" | "lava" | "ocean"` or
+  `{ type, colors: ["#rrggbb", "#rrggbb"] }`; `atmosphere: true | { color,
+  thickness 0..1, glow 0..2 }`; `rings: true | { color, inner, outer, tilt,
+  opacity }`; `node.size` (world radius). `texture: "https://..."` maps an image
+  YOUR APP supplies (http(s), relative, `data:image/`, `blob:`; other schemes
+  are refused); the kit bundles no images. Up to `limits.maxTextures`.
+  Preset-wide defaults: `cosmosPreset({ looks: { planet: { skin: "ice" } } })`.
+- **Limits**: `maxOrbitDepth`, `maxSpreadTicks`, `maxComets`, `maxCometStops`,
+  `maxCometTail`, `maxConstellations`, `maxConstellationMembers`,
+  `maxTextures`, `zoomLabelPx`, all through `limits`.
+- **Motion**: planets and moons orbit, systems turn about their galaxy's core,
+  the universe turns slowly about its centre. `paused` and reduced motion
+  freeze all of it (tails stay drawn). Speeds:
+  `cosmosPreset({ galaxyOrbitSpeed, spinSpeed, cometSpeed })` (0 stops a level).
+  A lens or sort change flies bodies to their new orbits (1.2 s; instant under
+  reduced motion).
+- **Deterministic**: the same data is the same sky, whatever its input order.
+- The layout's `meta` (handle `getMeta()`): `bodies` (`kind`: `STAR`,
+  `PLANET`, `ASTEROID`, `MOON`, `CORE`, `COMET`), `galaxies`, `comets`,
+  `constellations`, `lightDegree`, `placementIssues`, `lookIssues`.
+
+Pin placement with the same optional `cosmos` field, plain JSON:
 
 ```ts
 { id: "acme", group: "organization", cosmos: { galaxy: [1200, 0, -300] } } // this galaxy's core, world units; it stops orbiting
-{ id: "ceo", group: "person", cosmos: { offset: [40, -25] } }              // relative to its galaxy's core, in the disc ([x, y] or [x, y, z])
+{ id: "ceo", group: "person", cosmos: { offset: [40, -25] } }              // relative to its galaxy's core, in the disc ([x, y] or [x, y, z]); outside a galaxy, to its star
 ```
 
 Absent, the layout decides. A bad value (not finite numbers, wrong length, past
@@ -142,8 +201,9 @@ carries `data-fancy-graph-preset` and `data-fancy-graph-theme`.
 - **Layers, controlled JSON:** `layers` / `defaultLayers` / `onLayersChange`
   over the preset's declared layers (`getLayers()` lists them, with labels and
   state). In: a partial map, `{ orbits: true, labels: false }`; out: the full
-  map. Built-in ids: `links`, `labels`, `clusters`, `background`, `cores` and
-  `orbits` (cosmos only; orbits off by default). A preset declares them in `layers:
+  map. Built-in ids: `links`, `labels`, `clusters`, `background`; the cosmos
+  adds `cores`, `orbits` (off by default), `comets`, and with constellations
+  `constellations` plus `constellation:<id>` each. A preset declares them in `layers:
   GraphLayerSpec[]`; a custom 3D layer joins one with `layer: "<id>"`, else it
   belongs to its slot. `links: false` hides links whatever the mode.
 - **Link mode and motion are controllable too:** `linkVisibility` /
@@ -202,14 +262,18 @@ carries `data-fancy-graph-preset` and `data-fancy-graph-theme`.
   `getLayers`, `setLayer(id, visible)` (false for an undeclared id),
   `setLinkVisibility`, `setPaused`, `renderFrame`, plus the gamepad API below.
   The setters take `{ source }` and go through the same `on*Change` callbacks
-  as a click. 3D adds `flyToCluster`, `flyToPoint`, `follow`.
-- **Every limit is a prop:** `limits={{ maxNodes, maxLinks, maxLabels, maxForcedLabels, maxLabelLength, labelMinPx, pickRadius, maxSearchResults, workerThreshold, maxSettleTicks, maxPixelRatio, minZoom, maxZoom, fitMaxZoom, maxDistanceFactor, minDistance }}`. `DEFAULT_LIMITS` has the defaults. `fitMaxZoom` (default 2) caps only the automatic fit, so a small graph is not blown up; zooming by hand still reaches `maxZoom`.
+  as a click. 3D adds `flyToCluster`, `flyToPoint`, `follow`, `getMeta`,
+  `getBreadcrumbs`, `getConstellations`, `selectConstellation`, and
+  `getState().constellation`.
+- **Every limit is a prop:** `limits={{ maxNodes, maxLinks, maxLabels, maxForcedLabels, maxLabelLength, labelMinPx, pickRadius, maxSearchResults, workerThreshold, maxSettleTicks, maxPixelRatio, minZoom, maxZoom, fitMaxZoom, maxDistanceFactor, minDistance, maxPlacement, maxOrbitDepth, maxSpreadTicks, maxComets, maxCometStops, maxCometTail, maxConstellations, maxConstellationMembers, maxTextures, zoomLabelPx }}`. `DEFAULT_LIMITS` has the defaults. `fitMaxZoom` (default 2) caps only the automatic fit, so a small graph is not blown up; zooming by hand still reaches `maxZoom`.
 - **Stable handles:** the root is `[data-fancy-graph]` with
   `data-fancy-graph-renderer`, `-node-count`, `-link-count`, `-selected`,
   `-hovered`, `-focused`, `-matches`, `-layers` (visible layer ids, space
   separated), `-link-visibility`, `-paused`; the canvas is `[data-fancy-graph-canvas]`;
-  labels are `[data-fancy-graph-label="<node id>"]` and
-  `[data-fancy-graph-cluster-label="<cluster id>"]`.
+  labels are `[data-fancy-graph-label="<node id>"]`,
+  `[data-fancy-graph-cluster-label="<cluster id>"]` and (cosmos)
+  `[data-fancy-graph-constellation-label="<id>"]`; the 3D root adds
+  `-constellation` and `-breadcrumbs`.
 
 ## Gamepad and keyboard-only control
 

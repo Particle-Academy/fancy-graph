@@ -59,7 +59,20 @@ by hand-typing a figure you did not measure.
   `tests/presets2d.test.tsx` / `tests/presets3d.test.tsx`, the gallery in
   `bench/browser/run.mjs` (its screenshot in `docs/presets/`), and the README.
 - `examples/cosmos/` is the first acceptance case (beachhead's Cosmos view): its
-  data and colours, reusing the cosmos preset. It does not ship.
+  data and colours, reusing the cosmos preset, and `BEACHHEAD_COSMOS`, the one
+  lens it asks for. `kit.ts` is the kit-map shape (fields and relations) the
+  cosmos tests and captures use. None of it ships.
+- The cosmos is three files. `cosmos-layout.ts` is headless (no three): the
+  lenses, `prepareCosmos` (synthetic centres), the gravity forest, hubs,
+  travellers and arrivals, galaxies, the universe spread (the kit's own
+  `forceLayout`, then contacts), looks, constellations, and `positionAt`, which
+  must agree exactly with what `step` writes (comet tails sample it).
+  `cosmos-renderers.ts` is the look; `presets3d.ts` wires the preset hooks
+  (`prepare`, `configure`, `transition`, `labelReach`, `frameRadius`, `path`,
+  `layersFor`), which the engine and `GraphScene` read generically.
+- The harness's `mountCosmos` renders the cosmos captures in `docs/presets/`
+  (`3d-cosmos-*.png`). Look at them after any change to the cosmos's look;
+  a passing suite says nothing about whether the sky is legible.
 
 ## Invariants
 
@@ -71,6 +84,12 @@ by hand-typing a figure you did not measure.
   target from `camera.lookAt`), and tests run both paths.
 - Focus and selection stay visually distinct: `hasHighlightRing` decides the
   solid ring, the focus has its own dashed ring.
+- The cosmos is deterministic whatever the input order: every tie breaks by
+  node id, never by index, and nothing reads `Math.random` or the clock except
+  an arrival lens with no `now`.
+- Shader code: one `return` in any GLSL function that returns a value. ANGLE's HLSL backend warns
+  ("potentially uninitialized variable") on early returns, and the hardware
+  harness fails on any console warning.
 
 ## Changelog
 

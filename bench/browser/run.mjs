@@ -113,6 +113,28 @@ if (shoot) {
     }
 }
 
+// The cosmos redesign (0.4.0), as consumers configure it: a galaxy per type, the kit map with its
+// constellations and comets, a selected constellation, and a close look at data-driven bodies.
+// Hardware profile only; committed to docs/presets/ and shown in the README.
+phase = "cosmos captures";
+const cosmosShots = {};
+if (shoot) {
+  const docs = join(here, "..", "..", "docs", "presets");
+  const cases = {
+    "3d-cosmos-galaxies": { data: "beachhead", lenses: "galaxies" },
+    "3d-cosmos-kit": { data: "kit", lenses: "kit", frames: 40 },
+    "3d-cosmos-constellation": { data: "kit", lenses: "kit", constellation: "ai", frames: 40 },
+    "3d-cosmos-system": { data: "looks", lenses: "looks", fly: { id: "sol", distance: 330 }, layers: { orbits: true }, frames: 40 },
+  };
+  for (const [name, c] of Object.entries(cases)) {
+    phase = `cosmos capture: ${name}`;
+    cosmosShots[name] = await page.evaluate((x) => window.harness.mountCosmos(x), c);
+    cosmosShots[name].labels = await page.evaluate(() => [...document.querySelectorAll("[data-fancy-graph-label]")].filter((e) => e.style.display !== "none").length);
+    cosmosShots[name].constellationLabels = await page.evaluate(() => [...document.querySelectorAll("[data-fancy-graph-constellation-label]")].filter((e) => e.style.display !== "none").length);
+    await page.screenshot({ path: join(docs, `${name}.png`) });
+  }
+}
+
 // Gamepad path: focus stepping, neighbourhood mode, analog camera, on both renderers.
 const gamepad = {};
 phase = "2D gamepad";
@@ -189,7 +211,7 @@ const controlsOk =
   cosmosControls.afterReclick === "" &&
   cosmosControls.afterClick === "agent-0" &&
   cosmosControls.afterClear === "" &&
-  cosmosControls.layers === "background clusters cores links labels" &&
+  cosmosControls.layers === "background clusters cores links comets labels" &&
   cosmosControls.linkVisibility === "all";
 
 // A preset switched in place on a mounted view, every ordered pair, 2D and 3D (0.2.2: 3D into the cosmos threw).
@@ -200,7 +222,7 @@ const switchOk = Object.values(presetSwitch).every((steps) => steps.length > 0 &
 
 await browser.close();
 
-results.checks = { labels2dVisible: labels2d, selected3d: picked, handles3d, clicked2d: clicked, gamepad, gallery, cosmosControls, presetSwitch };
+results.checks = { labels2dVisible: labels2d, selected3d: picked, handles3d, clicked2d: clicked, gamepad, gallery, cosmosShots, cosmosControls, presetSwitch };
 results.console = consoleLog;
 mkdirSync(join(here, "..", "results"), { recursive: true });
 writeFileSync(join(here, "..", "results", `frame-times-${profile}.json`), JSON.stringify(results, null, 2) + "\n");

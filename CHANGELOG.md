@@ -111,6 +111,10 @@ If none of these apply, upgrading needs nothing.
   `maxComets` (256), `maxCometStops` (6), `maxCometTail` (400),
   `maxConstellations` (32), `maxConstellationMembers` (96), `maxTextures` (16),
   `zoomLabelPx` (22).
+- `labelCandidates({ limit })` keeps only the highest-priority unforced
+  candidates and asks for text only for those (the 3D view passes four times
+  `maxLabels`), and `chooseLabelSpot()` picks a name's first clear spot.
+  Constellation names use it, so they never sit on each other or on a node's label.
 - `GraphPreset3D` gains `prepare`, `configure`, `transition`, `labelReach`,
   `frameRadius`, `path` and `layersFor`, so any 3D preset can use them.
   `LayerFrame3D` gains `layers` and `constellation`; `LayerContext3D` gains `limits`.
@@ -126,6 +130,12 @@ If none of these apply, upgrading needs nothing.
   key (the field value, or the core node's id) and `data.core` the core's id.
   `CosmosBody` gains `depth`, `system`, `synthetic`, `extent`, `spacing`,
   `tail` and `look`; `galaxy` is -1 in open space.
+- **In the cosmos's default `"focus"` link mode, no light is drawn until
+  something is focused**, then only the focus's own (0.3.0 drew every link
+  faintly). The sky stays clean until you ask; `linkVisibility="all"` draws
+  every light link.
+- The 3D view caches each node's cut label text instead of building it every
+  frame.
 - `cosmosProps()` in the example returns only view props.
 
 ## [0.3.0] - 2026-11-27

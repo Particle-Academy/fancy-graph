@@ -33,7 +33,7 @@ export {
   type PickOptions,
   type SearchOptions,
 } from "./interaction";
-export { labelCandidates, LabelLayer, placeLabels, type CandidateInput, type ClusterLabel, type ConstellationLabel, type LabelCandidate, type PlacedLabel, type PlaceOptions } from "./labels";
+export { labelCandidates, LabelLayer, placeLabels, type CandidateInput, type ClusterLabel, type ConstellationLabel, chooseLabelSpot, type LabelCandidate, type PlacedLabel, type PlaceOptions } from "./labels";
 export {
   clampCamera2D,
   fitCamera2D,
