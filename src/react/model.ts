@@ -148,13 +148,16 @@ export interface GraphModel {
 export interface GraphModelView {
   layers?: readonly GraphLayerSpec[];
   linkVisibility?: LinkVisibility;
+  /** Runs on the data before it is validated: a preset's synthetic centres. Its output counts against the limits. */
+  prepare?: (data: GraphData) => GraphData;
 }
 
 export function useGraphModel(props: GraphViewBaseProps, view: GraphModelView = {}): GraphModel {
   const limitsKey = JSON.stringify(props.limits ?? {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const limits = useMemo(() => resolveLimits(props.limits), [limitsKey]);
-  const graph = useMemo(() => normalizeGraph(props.data, limits), [props.data, limits]);
+  const prepare = view.prepare;
+  const graph = useMemo(() => normalizeGraph(prepare ? prepare(props.data) : props.data, limits), [props.data, limits, prepare]);
   const matchIdx = useMemo(() => searchNodes(graph, props.search ?? "", { limit: limits.maxSearchResults }), [graph, props.search, limits]);
   const matches = useMemo(() => (matchIdx.length ? new Set(matchIdx) : null), [matchIdx]);
   const matchIds = useMemo(() => matchIdx.map((i) => graph.nodes[i].id), [matchIdx, graph]);

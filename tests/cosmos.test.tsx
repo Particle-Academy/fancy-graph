@@ -11,21 +11,26 @@ import * as THREE from "@particle-academy/fancy-3d-three/three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLayoutRunner, normalizeGraph, resolveLimits } from "../src/core";
 import { GraphSceneOnStage, type GraphScene3DHandle, type StageLike } from "../src/three/index";
-import { ASTEROID, cosmosLayout, PLANET, STAR, type CosmosMeta } from "../examples/cosmos/layout";
-import { cosmosRenderers } from "../examples/cosmos/renderers";
+import { ASTEROID, cosmosLayout, PLANET, prepareCosmos, STAR, type CosmosMeta } from "../examples/cosmos/layout";
+import { BEACHHEAD_COSMOS, cosmosRenderers } from "../examples/cosmos/renderers";
+import type { GraphData } from "../src/core";
 import { cosmosData } from "../examples/cosmos/data";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const env3 = { dimensions: 3 as const, reducedMotion: false, limits: resolveLimits() };
 const node = (id: string, group = "agent") => ({ id, label: id, group });
+/** Beachhead's data as the cosmos preset prepares it: a synthetic core node per type, first. */
+const beachhead = (data: GraphData) => prepareCosmos(data, BEACHHEAD_COSMOS);
 
 describe("cosmosLayout through the layout contract", () => {
-  it("makes one galaxy cluster per node type and keeps every node", () => {
-    const g = normalizeGraph({ nodes: [node("a"), node("b"), node("c", "problem"), node("d", "solution")], links: [{ source: "a", target: "b" }] });
-    const r = createLayoutRunner(cosmosLayout(), g, env3);
+  it("makes one galaxy cluster per node type, each centred on a core node, and keeps every node", () => {
+    const g = normalizeGraph(beachhead({ nodes: [node("a"), node("b"), node("c", "problem"), node("d", "solution")], links: [{ source: "a", target: "b" }] }));
+    const r = createLayoutRunner(cosmosLayout(BEACHHEAD_COSMOS), g, env3);
     expect(r.clusters()!.map((c) => c.id).sort()).toEqual(["agent", "problem", "solution"]);
-    expect((r.meta as CosmosMeta).bodies).toHaveLength(4);
+    // Four nodes and three cores: every centre is a node now.
+    expect((r.meta as CosmosMeta).bodies).toHaveLength(7);
+    expect(r.clusters()!.map((c) => c.data!.core).sort()).toEqual(["cosmos:galaxy:agent", "cosmos:galaxy:problem", "cosmos:galaxy:solution"]);
   });
 
   it("makes the best-connected node a star, linked nodes planets and unlinked nodes asteroids", () => {
@@ -56,8 +61,8 @@ describe("cosmosLayout through the layout contract", () => {
   });
 
   it("colours each galaxy cluster from the app's palette, so labels match the discs", () => {
-    const g = normalizeGraph({ nodes: [node("a"), node("p", "problem")], links: [] });
-    const cs = createLayoutRunner(cosmosLayout({ colors: { agent: "#112233" } }), g, env3).clusters()!;
+    const g = normalizeGraph(beachhead({ nodes: [node("a"), node("p", "problem")], links: [] }));
+    const cs = createLayoutRunner(cosmosLayout({ ...BEACHHEAD_COSMOS, colors: { agent: "#112233" } }), g, env3).clusters()!;
     expect(cs.find((c) => c.id === "agent")!.color).toBe("#112233");
     expect(cs.find((c) => c.id === "problem")!.color).toBeUndefined();
   });
@@ -73,7 +78,8 @@ describe("cosmosLayout through the layout contract", () => {
 
   it("keeps galaxies from overlapping", () => {
     const { nodes, links } = cosmosData(650, 900, 1);
-    const cs = createLayoutRunner(cosmosLayout(), normalizeGraph({ nodes, links }), env3).clusters()!;
+    const cs = createLayoutRunner(cosmosLayout(BEACHHEAD_COSMOS), normalizeGraph(beachhead({ nodes, links })), env3).clusters()!;
+    expect(cs.length).toBe(new Set(nodes.map((n) => n.group)).size);
     for (let i = 0; i < cs.length; i++)
       for (let j = i + 1; j < cs.length; j++) {
         const d = Math.hypot(cs[i].center[0] - cs[j].center[0], cs[i].center[1] - cs[j].center[1], cs[i].center[2] - cs[j].center[2]);
@@ -114,7 +120,7 @@ describe("the cosmos look through pluggable 3D layers", () => {
   it("draws stars, planets and asteroids with a custom instanced shader, galaxies as cluster discs, and a sky behind them", () => {
     const s = fakeStage();
     const { nodes, links } = cosmosData(650, 900, 1);
-    act(() => root.render(<GraphSceneOnStage stage={s.stage} data={{ nodes, links }} layout={cosmosLayout()} renderers={cosmosRenderers()} />));
+    act(() => root.render(<GraphSceneOnStage stage={s.stage} data={beachhead({ nodes, links })} layout={cosmosLayout(BEACHHEAD_COSMOS)} renderers={cosmosRenderers()} />));
     act(() => s.frame());
     const meshes: THREE.Object3D[] = [];
     s.scene.traverse((o) => meshes.push(o));
@@ -123,7 +129,8 @@ describe("the cosmos look through pluggable 3D layers", () => {
     const sky = meshes.find((o) => o.name === "cosmos-sky") as THREE.Points;
     expect(bodies).toBeDefined();
     expect((bodies.material as THREE.RawShaderMaterial).blending).toBe(THREE.CustomBlending);
-    expect((bodies.geometry as THREE.InstancedBufferGeometry).instanceCount).toBe(650);
+    // One body per node, the eight synthetic cores included.
+    expect((bodies.geometry as THREE.InstancedBufferGeometry).instanceCount).toBe(650 + new Set(nodes.map((n) => n.group)).size);
     expect((discs.geometry as THREE.InstancedBufferGeometry).instanceCount).toBe(new Set(nodes.map((n) => n.group)).size);
     expect(sky).toBeInstanceOf(THREE.Points);
     expect(sky.renderOrder).toBeLessThan(bodies.renderOrder);
@@ -133,7 +140,7 @@ describe("the cosmos look through pluggable 3D layers", () => {
     const s = fakeStage();
     const { nodes, links } = cosmosData(300, 420, 1);
     const ref = createRef<GraphScene3DHandle>();
-    act(() => root.render(<GraphSceneOnStage ref={ref} stage={s.stage} data={{ nodes, links }} preset="cosmos" />));
+    act(() => root.render(<GraphSceneOnStage ref={ref} stage={s.stage} data={{ nodes, links }} preset="cosmos" cosmos={BEACHHEAD_COSMOS} />));
     act(() => s.frame());
     const cores = s.scene.getObjectsByProperty("name", "cosmos-cores")[0] as THREE.Mesh;
     expect(cores).toBeDefined();
@@ -154,7 +161,7 @@ describe("the cosmos look through pluggable 3D layers", () => {
     const s = fakeStage();
     const { nodes, links } = cosmosData(300, 420, 1);
     const ref = createRef<GraphScene3DHandle>();
-    act(() => root.render(<GraphSceneOnStage ref={ref} stage={s.stage} data={{ nodes, links }} preset="cosmos" />));
+    act(() => root.render(<GraphSceneOnStage ref={ref} stage={s.stage} data={{ nodes, links }} preset="cosmos" cosmos={BEACHHEAD_COSMOS} />));
     act(() => s.frame());
     const centres = () => ref.current!.getClusters().map((c) => [...c.center]);
     const before = centres();
@@ -175,7 +182,7 @@ describe("the cosmos look through pluggable 3D layers", () => {
     const { nodes, links } = cosmosData(120, 160, 2);
     const ref = createRef<GraphScene3DHandle>();
     const onSelectedChange = vi.fn();
-    act(() => root.render(<GraphSceneOnStage ref={ref} stage={s.stage} data={{ nodes, links }} layout={cosmosLayout()} renderers={cosmosRenderers()} reducedMotion onSelectedChange={onSelectedChange} clusterLabel={(c) => `${c.label} · ${c.members.length}`} />));
+    act(() => root.render(<GraphSceneOnStage ref={ref} stage={s.stage} data={beachhead({ nodes, links })} layout={cosmosLayout(BEACHHEAD_COSMOS)} renderers={cosmosRenderers()} reducedMotion onSelectedChange={onSelectedChange} clusterLabel={(c) => `${c.label} · ${c.members.length}`} />));
     act(() => s.frame());
     const galaxy = ref.current!.getClusters()[0];
     act(() => {

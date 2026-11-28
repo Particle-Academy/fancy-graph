@@ -126,8 +126,9 @@ describe("3D presets", () => {
     });
   });
 
-  it("cosmos makes one galaxy per type", () => {
-    const s = mount({ preset: "cosmos" });
+  it("cosmos forces no galaxies; `galaxies: { by: { field: \"type\" } }` (0.3.0's default) makes one per type", () => {
+    expect(mount({ preset: "cosmos" }).ref.current!.getClusters()).toEqual([]);
+    const s = mount({ preset: "cosmos", cosmos: { galaxies: { by: { field: "type" } } } });
     expect(s.ref.current!.getClusters().map((c) => c.id).sort()).toEqual(["agent", "problem", "solution"]);
   });
 

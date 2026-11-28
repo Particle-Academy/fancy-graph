@@ -177,6 +177,7 @@ describe("layer visibility (3D)", () => {
       ["cores", true],
       ["orbits", false],
       ["links", true],
+      ["comets", true],
       ["labels", true],
     ]);
     expect(ref.current!.getState().linkVisibility).toBe("focus");
@@ -185,25 +186,30 @@ describe("layer visibility (3D)", () => {
       ref.current!.setLayer("orbits", true);
     });
     expect(ref.current!.getState().layers.orbits).toBe(true);
-    expect(wrap.dataset.fancyGraphLayers).toBe("background clusters cores orbits links labels");
+    expect(wrap.dataset.fancyGraphLayers).toBe("background clusters cores orbits links comets labels");
     expect(wrap.dataset.fancyGraphLinkVisibility).toBe("focus");
     wrap.remove();
   });
 });
 
 describe("cosmos orbit paths", () => {
-  it("draws one closed ring per orbiter around its star, in the layer tagged `orbits`, one set per galaxy", () => {
+  it("draws one closed ring per orbiting body round what it orbits, as one instanced set in the layer tagged `orbits`", () => {
     const { nodes, links } = cosmosData(120, 160, 3);
     const s = mount({ data: { nodes, links }, preset: "cosmos", layout: undefined, layers: { orbits: true } });
     act(() => s.frame());
     const lines = s.scene.getObjectsByProperty("name", "cosmos-orbits") as THREE.LineSegments[];
-    const galaxies = s.ref.current!.getClusters();
-    expect(lines).toHaveLength(galaxies.length);
-    const orbiters = s.ref.current!.getClusters().reduce((k, c) => k + c.members.length, 0) - galaxies.length;
-    const verts = lines.reduce((k, l) => k + l.geometry.drawRange.count, 0);
-    expect(verts).toBeGreaterThan(0);
-    expect(verts).toBeLessThanOrEqual(orbiters * 48 * 2);
-    for (const l of lines) expect(l.parent!.visible).toBe(true);
+    expect(lines).toHaveLength(1);
+    const meta = s.ref.current!.getMeta() as { bodies: { parent: number; pinned: boolean; kind: number; orbitRadius: number }[] };
+    const orbiters = meta.bodies.filter((b) => b.parent >= 0 && !b.pinned && b.kind !== 5 && b.orbitRadius > 0);
+    expect(orbiters.length).toBeGreaterThan(20);
+    const geo = lines[0].geometry as THREE.InstancedBufferGeometry;
+    expect(geo.instanceCount).toBe(orbiters.length);
+    // The ring of the first orbiter: centred on what it orbits, with its orbit's radius.
+    const c = geo.getAttribute("iC") as THREE.InterleavedBufferAttribute, u = geo.getAttribute("iU") as THREE.InterleavedBufferAttribute;
+    expect(Math.hypot(u.getX(0), u.getY(0), u.getZ(0))).toBeCloseTo(orbiters[0].orbitRadius, 3);
+    const parent = s.ref.current!.positionOf(String((s.ref.current!.getMeta() as { ids: string[] }).ids[orbiters[0].parent]))!;
+    expect([c.getX(0), c.getY(0), c.getZ(0)].map((x, k) => x - parent[k]).every((x) => Math.abs(x) < 1e-3)).toBe(true);
+    expect(lines[0].parent!.visible).toBe(true);
   });
 
   it("is hidden by default, and a factory exists for custom cosmos looks", () => {

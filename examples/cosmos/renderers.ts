@@ -4,13 +4,21 @@
  * adds: its own per-type colours.
  */
 import type { GraphNode } from "../../src/core";
+import type { CosmosLenses } from "../../src/three/presets/cosmos-layout";
 import { colorFor } from "../../src/core";
 import { cosmosDefaults } from "../../src/three/presets/cosmos-renderers";
 import { COSMOS_COLORS } from "./data";
 
 export { cosmosRenderers, cosmosDefaults, type CosmosRenderOptions } from "../../src/three/presets/cosmos-renderers";
 
-/** The preset's defaults plus this app's colours. */
+/**
+ * Beachhead's view: a galaxy per entity type, as 0.3.0 drew by default. In
+ * 0.4.0 a galaxy is asked for, and this is the line that asks.
+ */
+export const BEACHHEAD_COSMOS: CosmosLenses = { galaxies: { by: { field: "type" } } };
+
+/** The preset's view props plus this app's colours. */
 export function cosmosProps(colors: Record<string, string> = COSMOS_COLORS) {
-  return { ...cosmosDefaults, nodeColor: (n: GraphNode) => colors[n.group ?? ""] ?? colorFor(n.group) };
+  const { nodeSize, clusterLabel, homeYaw, homePitch, linkVisibility } = cosmosDefaults;
+  return { nodeSize, clusterLabel, homeYaw, homePitch, linkVisibility, nodeColor: (n: GraphNode) => colors[n.group ?? ""] ?? colorFor(n.group) };
 }

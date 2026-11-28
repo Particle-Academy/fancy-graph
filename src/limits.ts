@@ -43,6 +43,27 @@ export interface GraphLimits {
    * is ignored and reported, never clamped.
    */
   maxPlacement: number;
+  /** Levels of orbit in a cosmos system: star, planet, moon, ... A deeper body orbits the deepest allowed ancestor. */
+  maxOrbitDepth: number;
+  /** Steps the cosmos takes, once, to spread free systems and galaxies by their light links. */
+  maxSpreadTicks: number;
+  /** Comets (travellers and arrivals) at once; the rest are ordinary bodies. */
+  maxComets: number;
+  /** Systems one traveller visits. */
+  maxCometStops: number;
+  /** Longest comet tail, world units. */
+  maxCometTail: number;
+  /** Constellations drawn. */
+  maxConstellations: number;
+  /** Members per constellation (the best-connected are kept). */
+  maxConstellationMembers: number;
+  /** Distinct host-supplied images the cosmos loads as body textures. */
+  maxTextures: number;
+  /**
+   * Under semantic zoom, the projected size (CSS px) of what a label names (a
+   * system, an orbit) before it competes for space.
+   */
+  zoomLabelPx: number;
 }
 
 export const DEFAULT_LIMITS: Readonly<GraphLimits> = Object.freeze({
@@ -63,6 +84,15 @@ export const DEFAULT_LIMITS: Readonly<GraphLimits> = Object.freeze({
   maxDistanceFactor: 4,
   minDistance: 2,
   maxPlacement: 100000,
+  maxOrbitDepth: 4,
+  maxSpreadTicks: 160,
+  maxComets: 256,
+  maxCometStops: 6,
+  maxCometTail: 400,
+  maxConstellations: 32,
+  maxConstellationMembers: 96,
+  maxTextures: 16,
+  zoomLabelPx: 22,
 });
 
 /** Overrides merged onto the defaults. A non-finite or non-positive override is ignored, never "unlimited". */

@@ -1,6 +1,6 @@
 import { Stage, useStage } from "@particle-academy/fancy-3d-three/react";
 import * as THREE from "@particle-academy/fancy-3d-three/three";
-import { useImperativeHandle, useLayoutEffect, useMemo, useRef, type Ref } from "react";
+import { useCallback, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type Ref } from "react";
 import { createPortal } from "react-dom";
 import { DEFAULT_LAYERS, mergeLayerSpecs, type GraphLayerSpec } from "../layers";
 import { controlsDataset, controlsHandle, controlsState, isAnimatedLayout, renderControls } from "../react/controls";
@@ -8,15 +8,43 @@ import type { Camera3D } from "../camera";
 import type { GraphLayout } from "../layout/contract";
 import { applyThemeVars, resolveTheme, typeColorsFor } from "../theme";
 import { resolvePreset3D, type GraphPreset3D, type GraphPreset3DId } from "./presets/presets3d";
-import type { GraphViewHandleBase } from "../react/GraphView";
-import { useGraphModel, type GraphViewBaseProps } from "../react/model";
+import type { GraphViewHandleBase, GraphViewState } from "../react/GraphView";
+import { useGraphModel, type ChangeMeta, type GraphViewBaseProps } from "../react/model";
+import type { CosmosLenses } from "./presets/cosmos-layout";
 import { neighborLinks } from "../interaction";
 import { effectiveFocus, freshCycle, stepFocusIndex, type PendingFocus } from "../react/navigation";
-import type { GraphCluster, GraphNode, Vec3 } from "../types";
+import type { GraphActivitySource, GraphCluster, GraphNode, Vec3 } from "../types";
 import { StageEngine, type ClusterSource3D, type Engine3DOptions } from "./engine";
 import type { GraphRenderers3D, StageLike } from "./types";
 
+/** One step of the way out from a selection: the universe (id null), a galaxy's core, a star, a planet, the node. */
+export interface GraphBreadcrumb {
+  id: string | null;
+  label: string;
+}
+
+/** A named set of nodes the layout drew (the cosmos's constellations). */
+export interface GraphConstellationInfo {
+  id: string;
+  label: string;
+  /** Member node ids. */
+  members: string[];
+}
+
+export interface GraphScene3DState extends GraphViewState {
+  /** The selected constellation's id, or null. */
+  constellation: string | null;
+}
+
 export interface GraphScene3DHandle extends GraphViewHandleBase {
+  getState(): GraphScene3DState;
+  /** Whatever the layout exposed (the cosmos's bodies, galaxies, comets, constellations). */
+  getMeta(): unknown;
+  /** The selection's path, universe first; just the universe with nothing selected. Select a crumb's id to fly there. */
+  getBreadcrumbs(): GraphBreadcrumb[];
+  getConstellations(): GraphConstellationInfo[];
+  /** Selects a constellation (null clears) through the controlled path. False for an id the view does not draw. */
+  selectConstellation(id: string | null, opts?: { source?: GraphActivitySource }): boolean;
   /** Fly to a node and follow it while it moves. */
   flyTo(id: string, opts?: { distance?: number }): boolean;
   flyToCluster(id: string): boolean;
@@ -56,6 +84,18 @@ export interface GraphScene3DProps extends GraphViewBaseProps {
   homePitch?: number;
   /** Paint the stage's clear colour from the theme. Default: when `theme` is given (always, in `<GraphView3D>`). */
   applyThemeBackground?: boolean;
+  /**
+   * The cosmos's lenses, as JSON: `systems`, `galaxies`, `sort`,
+   * `constellations`, `comets`, `labels`. With a preset that takes options
+   * (the cosmos does), it replaces the preset's lenses; a change animates.
+   */
+  cosmos?: CosmosLenses;
+  /** Controlled constellation selection (an id or null). Its members are highlighted and the view frames them. */
+  selectedConstellation?: string | null;
+  defaultSelectedConstellation?: string | null;
+  onSelectedConstellationChange?: (id: string | null, meta: ChangeMeta) => void;
+  /** The selection's breadcrumbs, each time they change. */
+  onBreadcrumbsChange?: (crumbs: GraphBreadcrumb[]) => void;
 }
 
 export interface GraphSceneOnStageProps extends GraphScene3DProps {
@@ -70,14 +110,20 @@ export interface GraphSceneOnStageProps extends GraphScene3DProps {
  */
 export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
   const { stage } = props;
-  const preset = useMemo(() => resolvePreset3D(props.preset), [props.preset]);
+  const cosmosKey = props.cosmos === undefined ? "" : JSON.stringify(props.cosmos);
+  const preset = useMemo(() => {
+    const base = resolvePreset3D(props.preset);
+    return cosmosKey && base.configure ? base.configure(JSON.parse(cosmosKey) as CosmosLenses) : base;
+  }, [props.preset, cosmosKey]);
+  // Layers a preset can name only after its layout has run (one per constellation).
+  const [metaLayers, setMetaLayers] = useState<GraphLayerSpec[]>([]);
   // Layers own GPU state: a fresh set per preset, and slot-by-slot overrides from the props.
   const presetLayers = useMemo(() => preset.renderers?.() ?? {}, [preset]);
   const renderers = useMemo(() => ({ ...presetLayers, ...(props.renderers ?? {}) }), [presetLayers, props.renderers]);
   const hasClusters = props.clusters !== undefined;
   // The preset's layers, plus any its renderers (or the props' overrides) fill or tag.
-  const layerSpecs = useMemo(() => mergeLayerSpecs(preset.layers, layersOf(renderers, hasClusters)), [preset, renderers, hasClusters]);
-  const model = useGraphModel(props, { layers: layerSpecs, linkVisibility: preset.linkVisibility });
+  const layerSpecs = useMemo(() => mergeLayerSpecs(preset.layers, metaLayers, layersOf(renderers, hasClusters)), [preset, renderers, hasClusters, metaLayers]);
+  const model = useGraphModel(props, { layers: layerSpecs, linkVisibility: preset.linkVisibility, prepare: preset.prepare });
   const { graph, limits } = model;
   const engineRef = useRef<StageEngine | null>(null);
   const latest = useRef({ props, model, preset });
@@ -122,8 +168,23 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
       paused: m.paused,
       homeYaw: p.homeYaw ?? pr.homeYaw ?? 0.75,
       homePitch: p.homePitch ?? pr.homePitch ?? 0.55,
+      transition: pr.transition,
+      labelReach: pr.labelReach,
+      frameRadius: pr.frameRadius,
     };
   };
+
+  // The constellation selection: controlled when the prop is given.
+  const [innerConstellation, setInnerConstellation] = useState<string | null>(props.defaultSelectedConstellation ?? null);
+  const constellation = props.selectedConstellation !== undefined ? props.selectedConstellation : innerConstellation;
+  const selectConstellation = useCallback((id: string | null, meta: ChangeMeta) => {
+    const { props: p, model: m } = latest.current;
+    if (p.selectedConstellation === undefined) setInnerConstellation(id);
+    p.onSelectedConstellationChange?.(id, meta);
+    m.emit("constellation", id, meta.source);
+  }, []);
+  const constellationRef = useRef(constellation);
+  constellationRef.current = constellation;
   const rendersRef = useRef(renderers);
   rendersRef.current = renderers;
 
@@ -152,6 +213,10 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
           const m = latest.current.model;
           if (m.selectedId !== null) m.select(null, { source: "user" });
         },
+        onConstellation: (id) => {
+          // A click on the selected constellation clears it.
+          selectConstellation(id === constellationRef.current ? null : id, { source: "user" });
+        },
       },
       latest.current.model.reducedMotion,
     );
@@ -174,7 +239,11 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
   // the new nodeSize) against the OLD layout's meta, and the cosmos reads
   // meta.bodies. setScene takes the options too, so setOptions after it is a no-op remount-wise.
   useLayoutEffect(() => {
-    engineRef.current?.setScene(graph, layout, options());
+    const engine = engineRef.current;
+    if (!engine) return;
+    engine.setScene(graph, layout, options());
+    const next = latest.current.preset.layersFor?.(engine.getMeta()) ?? [];
+    setMetaLayers((cur) => (cur.map((l) => `${l.id}=${l.label}`).join("|") === next.map((l) => `${l.id}=${l.label}`).join("|") ? cur : next));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph, layout, renderers, stage]);
   useLayoutEffect(() => {
@@ -194,6 +263,31 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
     pendingFocus.current = null;
   });
   const flyOnSelect = props.flyOnSelect ?? true;
+  // A constellation selected (here, by a click, or by an agent) highlights its members and, like a selection, flies to frame them.
+  useLayoutEffect(() => {
+    const members = engineRef.current?.setConstellation(constellation ?? null) ?? [];
+    if (flyOnSelect && members.length) engineRef.current?.fitIndices(members);
+  }, [constellation, graph, layout, flyOnSelect, stage]);
+  const crumbsOf = (): GraphBreadcrumb[] => {
+    const { model: m, preset: pr } = latest.current;
+    const out: GraphBreadcrumb[] = [{ id: null, label: "Universe" }];
+    const sel = m.selectedIndex;
+    if (sel < 0) return out;
+    const path = pr.path ? pr.path(sel, engineRef.current?.getMeta()) : [sel];
+    for (const i of path) if (i >= 0 && i < m.graph.nodes.length) out.push({ id: m.graph.nodes[i].id, label: m.labelOf(i) });
+    return out;
+  };
+  const lastCrumbs = useRef("");
+  useLayoutEffect(() => {
+    const crumbs = crumbsOf();
+    const key = JSON.stringify(crumbs);
+    const root = stage.canvas.closest<HTMLElement>("[data-fancy-graph]");
+    if (root) root.dataset.fancyGraphBreadcrumbs = crumbs.map((c) => c.id).filter((x): x is string => x !== null).join(" > ");
+    if (key === lastCrumbs.current) return;
+    lastCrumbs.current = key;
+    latest.current.props.onBreadcrumbsChange?.(crumbs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model.selectedIndex, graph, layout, stage]);
   useLayoutEffect(() => {
     if (flyOnSelect && model.selectedIndex >= 0) engineRef.current?.flyToIndex(model.selectedIndex);
   }, [flyOnSelect, model.selectedIndex, stage]);
@@ -214,12 +308,13 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
       root.dataset.fancyGraphHovered = model.hoveredId ?? "";
       root.dataset.fancyGraphFocused = model.focusedId ?? "";
       root.dataset.fancyGraphMatches = String(model.matchIds.length);
+      root.dataset.fancyGraphConstellation = constellation ?? "";
       for (const [k, v] of Object.entries(controlsDataset(model))) root.setAttribute(k, v);
     }
     stage.canvas.setAttribute("aria-label", ariaName);
     stage.canvas.setAttribute("role", "img");
     stage.canvas.setAttribute("data-fancy-graph-canvas", "");
-  }, [stage, graph, model.selectedId, model.hoveredId, model.focusedId, model.matchIds, ariaName, model.layerStates, model.linkVisibility, model.paused]);
+  }, [stage, graph, model.selectedId, model.hoveredId, model.focusedId, model.matchIds, ariaName, model.layerStates, model.linkVisibility, model.paused, constellation]);
 
   useImperativeHandle(
     props.ref,
@@ -286,9 +381,23 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
           return { ms: performance.now() - t0 };
         },
         getClusters: () => e()?.getClusters() ?? [],
+        getMeta: () => e()?.getMeta(),
+        getBreadcrumbs: () => crumbsOf(),
+        getConstellations() {
+          const mm = m();
+          const list = (e()?.getMeta() as { constellations?: { id: string; label: string; members: number[] }[] } | undefined)?.constellations;
+          return Array.isArray(list) ? list.map((c) => ({ id: c.id, label: c.label, members: c.members.map((i) => mm.graph.nodes[i]?.id).filter((x): x is string => !!x) })) : [];
+        },
+        selectConstellation(id, opts) {
+          const list = (e()?.getMeta() as { constellations?: { id: string }[] } | undefined)?.constellations ?? [];
+          if (id !== null && !list.some((c) => c.id === id)) return false;
+          selectConstellation(id, { source: opts?.source ?? "api" });
+          return true;
+        },
         getState() {
           const mm = m();
           return {
+            constellation: constellationRef.current ?? null,
             selected: mm.selectedId,
             hovered: mm.hoveredId,
             focused: mm.focusedId,

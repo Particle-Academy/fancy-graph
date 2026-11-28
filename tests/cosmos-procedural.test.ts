@@ -1,5 +1,8 @@
 /**
- * The cosmos, 0.3.0 (owner request 2026-11-27): a galactic core per galaxy,
+ * The cosmos's galaxies, 0.3.0 (owner request 2026-11-27), as 0.4.0 keeps
+ * them: a galaxy per type is now asked for with `galaxies: { by: { field:
+ * "type" } }` (the migration of 0.3.0's default), and its core is a node.
+ * A galactic core per galaxy,
  * galaxies shaped procedurally from the data (deterministically), a motion
  * hierarchy (planets round stars, systems round their galaxy's core, galaxies
  * round the graph centre), and an optional `cosmos` field on a node that pins
@@ -7,12 +10,15 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLayoutRunner, normalizeGraph, resolveLimits, type GraphData, type GraphNode } from "../src/core";
-import { cosmosLayout, STAR, type CosmosGalaxy, type CosmosMeta } from "../src/three/presets/cosmos-layout";
+import { cosmosLayout, prepareCosmos, STAR, type CosmosGalaxy, type CosmosLayoutOptions, type CosmosMeta } from "../src/three/presets/cosmos-layout";
 import { cosmosLayers } from "../src/three/presets/cosmos-renderers";
 import { cosmosData } from "../examples/cosmos/data";
 
 const env = (reducedMotion = false) => ({ dimensions: 3 as const, reducedMotion, limits: resolveLimits() });
-const run = (data: GraphData, opts = {}, reducedMotion = false) => createLayoutRunner(cosmosLayout(opts), normalizeGraph(data), env(reducedMotion));
+/** 0.3.0's galaxy per type, as 0.4.0 asks for it. */
+const TYPE: CosmosLayoutOptions = { galaxies: { by: { field: "type" } } };
+const prepared = (data: GraphData) => normalizeGraph(prepareCosmos(data, TYPE));
+const run = (data: GraphData, opts: CosmosLayoutOptions = {}, reducedMotion = false) => createLayoutRunner(cosmosLayout({ ...TYPE, ...opts }), prepared(data), env(reducedMotion));
 const metaOf = (r: { meta: unknown }) => r.meta as CosmosMeta;
 const dist = (a: ArrayLike<number>, b: ArrayLike<number>) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const at = (p: Float32Array, i: number): [number, number, number] => [p[i * 3], p[i * 3 + 1], p[i * 3 + 2]];
@@ -38,7 +44,7 @@ describe("deterministic, procedural galaxies", () => {
       b.tick(0.25);
     }
     expect(metaOf(a).galaxies.map(shape)).toEqual(metaOf(b).galaxies.map(shape));
-    const ga = normalizeGraph({ nodes, links }), gb = normalizeGraph({ nodes: [...nodes].reverse(), links });
+    const ga = prepared({ nodes, links }), gb = prepared({ nodes: [...nodes].reverse(), links });
     for (const n of nodes) {
       const pa = at(a.positions, ga.index.get(n.id)!), pb = at(b.positions, gb.index.get(n.id)!);
       expect(dist(pa, pb), n.id).toBeLessThan(1e-3);
@@ -83,20 +89,23 @@ describe("a galactic core per galaxy", () => {
     }
   });
 
-  it("a one-node galaxy is a star beside its core, not on top of it", () => {
-    const r = run({ nodes: [{ id: "solo", group: "lonely" }], links: [] });
+  it("a one-node galaxy is a body beside its core, not on top of it", () => {
+    const data = { nodes: [{ id: "solo", group: "lonely" }], links: [] };
+    const r = run(data);
     const g = metaOf(r).galaxies[0];
-    expect(dist(at(r.positions, 0), g.center)).toBeGreaterThan(g.coreRadius * 1.5);
+    // Index 0 is the galaxy's synthetic core; the node itself comes after it.
+    expect(dist(at(r.positions, 0), g.center)).toBeLessThan(1e-6);
+    expect(dist(at(r.positions, prepared(data).index.get("solo")!), g.center)).toBeGreaterThan(g.coreRadius * 1.5);
   });
 
   it("the preset lists a `cores` layer beside the others", () => {
-    expect(cosmosLayers().map((l) => l.id)).toEqual(["background", "clusters", "cores", "orbits", "links", "labels"]);
+    expect(cosmosLayers().map((l) => l.id)).toEqual(["background", "clusters", "cores", "orbits", "links", "comets", "labels"]);
   });
 });
 
 describe("the motion hierarchy", () => {
   const data = cosmosData(300, 420, 3);
-  const g = normalizeGraph(data);
+  const g = prepared(data);
 
   it("systems orbit their galactic core and galaxies orbit the graph centre, each at a fixed distance", () => {
     const r = run(data);
@@ -125,7 +134,7 @@ describe("the motion hierarchy", () => {
           if (b.kind === STAR) {
             expect(dist(at(r.positions, i), x.center), `star ${g.nodes[i].id} to core`).toBeCloseTo(starDist.get(i)!, 2);
             if (dist(at(r.positions, i), firstStar.get(i)!) > 0.5) starsMoved++;
-          } else if (!b.pinned) {
+          } else if (!b.pinned && b.parent >= 0) {
             expect(dist(at(r.positions, i), at(r.positions, b.parent)), `planet ${g.nodes[i].id} to its star`).toBeCloseTo(b.orbitRadius, 1);
           }
         }
@@ -177,6 +186,8 @@ describe("the optional `cosmos` placement field", () => {
     links: [...Array.from({ length: 19 }, (_, i) => ({ source: "a0", target: `a${i + 1}` })), ...Array.from({ length: 9 }, (_, i) => ({ source: "p0", target: `p${i + 1}` }))],
   });
   const galaxy = (r: { meta: unknown }, type: string) => metaOf(r).galaxies.find((x) => x.type === type)!;
+  /** A node's index in the prepared graph (the synthetic cores come first). */
+  const idx = (data: GraphData, id: string) => prepared(data).index.get(id)!;
 
   it("`cosmos.galaxy` pins a galaxy's core in world space, and a pinned galaxy does not travel", () => {
     const data = base();
@@ -200,13 +211,14 @@ describe("the optional `cosmos` placement field", () => {
     const r = run(data);
     const g = galaxy(r, "agent");
     const m = metaOf(r);
-    expect(m.bodies[3].pinned).toBe(true);
+    const a3 = idx(data, "a3"), a0 = idx(data, "a0");
+    expect(m.bodies[a3].pinned).toBe(true);
     for (const t of [0.01, 10, 90]) {
       while (r.time < t) r.tick(0.5);
-      expect(dist(at(r.positions, 3), g.center)).toBeCloseTo(50, 2);
-      expect(dist(at(r.positions, 0), g.center)).toBeCloseTo(Math.hypot(120, 25), 2);
+      expect(dist(at(r.positions, a3), g.center)).toBeCloseTo(50, 2);
+      expect(dist(at(r.positions, a0), g.center)).toBeCloseTo(Math.hypot(120, 25), 2);
       // In the disc plane: no component along the galaxy's normal.
-      const p = at(r.positions, 3);
+      const p = at(r.positions, a3);
       const off = [p[0] - g.center[0], p[1] - g.center[1], p[2] - g.center[2]];
       expect(off[0] * g.normal[0] + off[1] * g.normal[1] + off[2] * g.normal[2]).toBeCloseTo(0, 2);
     }
@@ -243,7 +255,7 @@ describe("the optional `cosmos` placement field", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const data = base();
     data.nodes[20] = { ...data.nodes[20], cosmos: { galaxy: [5000, 0, 0] } };
-    const tight = createLayoutRunner(cosmosLayout(), normalizeGraph(data), { ...env(), limits: resolveLimits({ maxPlacement: 1000 }) });
+    const tight = createLayoutRunner(cosmosLayout(TYPE), prepared(data), { ...env(), limits: resolveLimits({ maxPlacement: 1000 }) });
     expect(galaxy(tight, "problem").pinned).toBe(false);
     expect(metaOf(tight).placementIssues).toHaveLength(1);
   });

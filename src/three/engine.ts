@@ -4,7 +4,7 @@ import { groupClusters } from "../clusters";
 import { colorFor, parseColor } from "../color";
 import { computeLinkStates, computeNodeStates, focusOf, NODE_ACTIVE, NODE_NEIGHBOR, pickScreen } from "../interaction";
 import { effectiveLinkVisibility, isLayerVisible } from "../layers";
-import { LabelLayer, labelCandidates, placeLabels, type ClusterLabel } from "../labels";
+import { LabelLayer, labelCandidates, placeLabels, type ClusterLabel, type ConstellationLabel } from "../labels";
 import { createLayoutRunner, type GraphLayout, type LayoutRunner } from "../layout/contract";
 import { truncateLabel, type GraphLimits } from "../limits";
 import type { GraphCluster, IndexedGraph, Vec3 } from "../types";
@@ -27,13 +27,33 @@ export interface Engine3DOptions {
   /** Where the home view looks from (radians). */
   homeYaw: number;
   homePitch: number;
+  /** Seconds a new layout takes to fly bodies from their old positions (0: instant). Skipped under reduced motion. */
+  transition?: number;
+  /** Semantic zoom: world size of what each label names (see `GraphPreset3D.labelReach`). */
+  labelReach?: (index: number, meta: unknown) => number;
+  /** The world radius selecting a node frames, or null for the default. */
+  frameRadius?: (index: number, meta: unknown) => number | null;
 }
+
+/** A named set of nodes a layout exposes as `meta.constellations` (the cosmos does). */
+interface ConstellationLike {
+  id: string;
+  label: string;
+  members: number[];
+  color?: string | null;
+}
+const constellationsOf = (meta: unknown): ConstellationLike[] => {
+  const list = (meta as { constellations?: unknown } | null | undefined)?.constellations;
+  return Array.isArray(list) ? (list as ConstellationLike[]) : [];
+};
 
 export interface Engine3DCallbacks {
   onSelect(index: number): void;
   onHover(index: number): void;
   onCamera(camera: Camera3D): void;
   onEscape(): void;
+  /** A constellation's label was clicked. */
+  onConstellation?(id: string): void;
 }
 
 const MIN_DT = 1 / 240;
@@ -108,6 +128,14 @@ export class StageEngine {
   private sizes = new Float32Array(0);
   private colors = new Float32Array(0);
   private clusterCache: GraphCluster[] = [];
+  /** What layers and labels read: the layout's positions, or a blend toward them while a new layout flies in. */
+  private live: Float32Array<ArrayBufferLike> = new Float32Array(0);
+  private transition: { from: Float32Array; t: number; dur: number } | null = null;
+  private reachWorld: Float32Array | null = null;
+  private reachPx = new Float32Array(0);
+  private constellation: string | null = null;
+  private constellationMembers: Set<number> | null = null;
+  private effectiveMatches: Set<number> | null = null;
   private selected = -1;
   private hovered = -1;
   private focused = -1;
@@ -168,11 +196,35 @@ export class StageEngine {
 
   setGraph(graph: IndexedGraph, layout: GraphLayout) {
     const prevSelectedId = this.graph && this.selected >= 0 ? this.graph.nodes[this.selected]?.id : null;
+    // What was on screen, so the new layout can fly bodies in from there.
+    const prev = this.graph && this.runner ? { graph: this.graph, live: Float32Array.from(this.live), time: this.runner.time } : null;
     this.runner?.dispose();
     this.graph = graph;
     const n = graph.nodes.length;
     this.runner = createLayoutRunner(layout, graph, { dimensions: 3, limits: this.limits, reducedMotion: this.reducedMotion });
+    // An animated replacement picks up the animated time where the last one was, so nothing jumps back to time 0.
+    if (prev && prev.time > 0) this.runner.seek(prev.time);
     this.runner.setPaused(this.opts.paused);
+    this.live = this.runner.positions;
+    this.transition = null;
+    const dur = this.opts.transition ?? 0;
+    if (prev && dur > 0 && !this.reducedMotion && n) {
+      const from = Float32Array.from(this.runner.positions);
+      let shared = 0;
+      for (let i = 0; i < n; i++) {
+        const j = prev.graph.index.get(graph.nodes[i].id);
+        if (j === undefined || j * 3 + 2 >= prev.live.length) continue;
+        from[i * 3] = prev.live[j * 3];
+        from[i * 3 + 1] = prev.live[j * 3 + 1];
+        from[i * 3 + 2] = prev.live[j * 3 + 2];
+        shared++;
+      }
+      if (shared) {
+        this.transition = { from, t: 0, dur };
+        this.live = Float32Array.from(from);
+      }
+    }
+    this.reachPx = new Float32Array(n);
     this.screen = new Float32Array(n * 4);
     this.depths = new Float32Array(n);
     this.order = new Uint32Array(n);
@@ -190,7 +242,27 @@ export class StageEngine {
     cam.near = Math.max(0.05, cam.far / 200000);
     cam.updateProjectionMatrix();
     this.remountLayers();
+    this.setConstellation(this.constellation);
     if (this.homePending && n) this.goHome(true);
+  }
+
+  /** The layout's meta (the cosmos's bodies, galaxies, constellations). */
+  getMeta(): unknown {
+    return this.runner?.meta;
+  }
+
+  /** Selects a constellation by id (null clears): its members are highlighted like search matches. Returns its member indices. */
+  setConstellation(id: string | null): number[] {
+    const c = id === null ? undefined : constellationsOf(this.runner?.meta).find((k) => k.id === id);
+    this.constellation = c ? c.id : null;
+    this.constellationMembers = c ? new Set(c.members) : null;
+    this.refreshMatches();
+    return c ? [...c.members] : [];
+  }
+
+  private refreshMatches() {
+    const a = this.matches, b = this.constellationMembers;
+    this.effectiveMatches = !b ? a : !a ? b : new Set([...a, ...b]);
   }
 
   /** Graph, layout and look together, so layers never mount against another layout's meta. */
@@ -228,6 +300,7 @@ export class StageEngine {
     this.matches = matches;
     this.focused = focused;
     this.neighborhood = neighborhood;
+    this.refreshMatches();
   }
 
   /** Keep a node in view at the current distance: fly to it, then follow it. */
@@ -317,7 +390,7 @@ export class StageEngine {
         const id = layer.layer ?? SLOT_LAYER[order];
         group.name = `fancy-graph-layer-${id}`;
         this.group.add(group);
-        layer.mount({ group, renderOrder: order, graph: g, meta: this.runner?.meta, clusters: this.clusterCache, camera: this.stage.camera, colors: this.colors });
+        layer.mount({ group, renderOrder: order, graph: g, meta: this.runner?.meta, clusters: this.clusterCache, camera: this.stage.camera, colors: this.colors, limits: this.limits });
         this.layers.push({ layer, id, group });
       }
     });
@@ -346,6 +419,15 @@ export class StageEngine {
       const s = this.opts.nodeSize ? this.opts.nodeSize(i, meta) : node.size;
       this.sizes[i] = typeof s === "number" && Number.isFinite(s) && s > 0 ? s : 2 + Math.min(10, Math.sqrt(g.degree[i]) * 1.6);
     }
+    const reach = this.opts.labelReach;
+    if (reach) {
+      const w = this.reachWorld && this.reachWorld.length === g.nodes.length ? this.reachWorld : new Float32Array(g.nodes.length);
+      for (let i = 0; i < g.nodes.length; i++) {
+        const v = reach(i, meta);
+        w[i] = typeof v === "number" && !Number.isNaN(v) ? v : 0;
+      }
+      this.reachWorld = w;
+    } else this.reachWorld = null;
   }
 
   private resolveClusters(): GraphCluster[] {
@@ -362,7 +444,7 @@ export class StageEngine {
   private measure() {
     const r = this.runner, g = this.graph;
     if (!r || !g || !g.nodes.length) return;
-    const p = r.positions;
+    const p = this.live.length === g.nodes.length * 3 ? this.live : r.positions;
     const n = g.nodes.length;
     let cx = 0, cy = 0, cz = 0;
     for (let i = 0; i < n; i++) {
@@ -414,11 +496,12 @@ export class StageEngine {
     if (!this.graph || index < 0 || index >= this.graph.nodes.length) return false;
     const t = this.orbit.target;
     this.follow = index;
-    const p = this.runner!.positions;
+    const p = this.live;
     this.followOffset.set(t ? t.x - p[index * 3] : 0, t ? t.y - p[index * 3 + 1] : 0, t ? t.z - p[index * 3 + 2] : 0);
     this.goalTarget = null;
     this.goalDir = null;
-    this.goalDist = distance ?? Math.max(this.limits.minDistance * 4, this.sizes[index] * 14 + 20);
+    const framed = distance === undefined ? this.opts.frameRadius?.(index, this.runner?.meta) : null;
+    this.goalDist = distance ?? (typeof framed === "number" && Number.isFinite(framed) && framed > 0 ? this.fitDistance(framed) : Math.max(this.limits.minDistance * 4, this.sizes[index] * 14 + 20));
     this.travelling = true;
     return true;
   }
@@ -439,7 +522,7 @@ export class StageEngine {
   }
 
   fitIndices(indices: number[]) {
-    const p = this.runner?.positions;
+    const p = this.runner ? this.live : undefined;
     if (!p || !indices.length) return;
     const box = new THREE.Box3();
     for (const i of indices) box.expandByPoint(this.tmp.set(p[i * 3], p[i * 3 + 1], p[i * 3 + 2]));
@@ -482,7 +565,7 @@ export class StageEngine {
 
   /** A node's world position this frame. */
   positionOf(index: number): [number, number, number] | null {
-    const p = this.runner?.positions;
+    const p = this.runner ? this.live : undefined;
     if (!p || index < 0 || index * 3 >= p.length) return null;
     return [p[index * 3], p[index * 3 + 1], p[index * 3 + 2]];
   }
@@ -510,9 +593,22 @@ export class StageEngine {
       const src = this.opts.clusters;
       if (src === "group" || typeof src === "function" || (src === undefined && r.animated)) this.clusterCache = this.resolveClusters();
     }
-    if (!r.animated && !r.settled) this.measure();
-    const p = r.positions;
     const n = g.nodes.length;
+    const tr = this.transition;
+    if (tr) {
+      if (this.reducedMotion) tr.t = tr.dur;
+      tr.t += dt;
+      const s = Math.min(1, tr.t / tr.dur);
+      const e = s * s * s * (s * (s * 6 - 15) + 10);
+      const P = r.positions, F = tr.from, L = this.live;
+      for (let k = 0; k < n * 3; k++) L[k] = F[k] + (P[k] - F[k]) * e;
+      if (s >= 1) {
+        this.transition = null;
+        this.live = r.positions;
+      }
+    } else if (this.live !== r.positions) this.live = r.positions;
+    if (!r.animated && !r.settled) this.measure();
+    const p = this.live;
     const t = this.orbit.target;
     if (this.homePending && t && n) {
       // The target only became known this frame (a Stage without the controls handle).
@@ -585,10 +681,14 @@ export class StageEngine {
       this.screen[i * 4 + 1] = H / 2 - (vy / -vz) * f;
       this.screen[i * 4 + 2] = (this.sizes[i] * f) / -vz;
       this.screen[i * 4 + 3] = -vz;
+      if (this.reachWorld) {
+        const w = this.reachWorld[i];
+        this.reachPx[i] = w === Infinity ? Infinity : w < 0 ? -1 : (w * f) / -vz;
+      }
     }
     const depths = this.depths;
     this.order.sort((a, b) => depths[b] - depths[a]);
-    const focusIn = { selected: this.selected, hovered: this.hovered, matches: this.matches, focused: this.focused, neighborhood: this.neighborhood };
+    const focusIn = { selected: this.selected, hovered: this.hovered, matches: this.effectiveMatches, focused: this.focused, neighborhood: this.neighborhood };
     computeNodeStates(g, focusIn, this.states);
     computeLinkStates(g, focusIn, this.linkStates);
 
@@ -612,8 +712,10 @@ export class StageEngine {
       focused: this.focused,
       selected: this.selected,
       hovered: this.hovered,
-      matches: this.matches,
+      matches: this.effectiveMatches,
       linkVisibility: effectiveLinkVisibility(this.opts.linkVisibility, this.visible("links")),
+      layers: this.opts.layers ?? {},
+      constellation: this.constellation,
     };
     for (const l of this.layers) if (l.group.visible) l.layer.update(frame);
     this.paintLabels(g, W, H, view, f);
@@ -627,10 +729,12 @@ export class StageEngine {
       states: this.states,
       selected: this.selected,
       hovered: this.hovered,
-      matches: this.matches,
+      matches: this.effectiveMatches,
       width: W,
       height: H,
       labelMinPx: this.limits.labelMinPx,
+      reach: this.reachWorld ? this.reachPx : undefined,
+      reachMinPx: this.limits.zoomLabelPx,
       text: (i) => truncateLabel(this.opts.labelOf(i), max),
       focused: this.focused,
       focusNeighbors: this.focused >= 0 ? g.neighbors[this.focused] : undefined,
@@ -666,6 +770,40 @@ export class StageEngine {
       cl.push({ id: c.id, text: truncateLabel(text, max), x: W / 2 + (x / -z) * f, y: Math.max(18, H / 2 - (y / -z) * f - lift - 10), color: c.color ?? this.memberHex(c) ?? colorFor(c.id) });
     }
     this.labels.renderClusters(cl);
+    this.paintConstellationLabels(W, H, view, f);
+  }
+
+  /** Each visible constellation's name over its members, once its figure is big enough on screen to read. */
+  private paintConstellationLabels(W: number, H: number, view: ArrayLike<number>, f: number) {
+    const out: ConstellationLabel[] = [];
+    const list = this.visible("constellations") && this.visible("labels") ? constellationsOf(this.runner?.meta) : [];
+    const p = this.live;
+    const max = this.limits.maxLabelLength;
+    for (const c of list) {
+      if (!this.visible(`constellation:${c.id}`) || !c.members.length) continue;
+      let sx = 0, sy = 0, k = 0, minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const i of c.members) {
+        const x = p[i * 3], y = p[i * 3 + 1], z = p[i * 3 + 2];
+        const vz = view[2] * x + view[6] * y + view[10] * z + view[14];
+        if (vz >= 0) continue;
+        const px = W / 2 + ((view[0] * x + view[4] * y + view[8] * z + view[12]) / -vz) * f;
+        const py = H / 2 - ((view[1] * x + view[5] * y + view[9] * z + view[13]) / -vz) * f;
+        sx += px;
+        sy += py;
+        k++;
+        minX = Math.min(minX, px);
+        maxX = Math.max(maxX, px);
+        minY = Math.min(minY, py);
+        maxY = Math.max(maxY, py);
+      }
+      if (!k) continue;
+      const span = Math.max(maxX - minX, maxY - minY);
+      const x = sx / k, y = sy / k;
+      if (c.members.length > 1 && span < 24) continue;
+      if (x < -40 || y < -20 || x > W + 40 || y > H + 20) continue;
+      out.push({ id: c.id, text: truncateLabel(c.label, max), x, y: Math.max(16, y), color: typeof c.color === "string" ? c.color : colorFor(c.id), selected: c.id === this.constellation });
+    }
+    this.labels.renderConstellations(out, (id) => this.cb.onConstellation?.(id));
   }
 
   // ------------------------------------------------------------------ input

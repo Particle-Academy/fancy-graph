@@ -1,4 +1,5 @@
 import type * as THREE from "@particle-academy/fancy-3d-three/three";
+import type { GraphLimits } from "../limits";
 import type { GraphCluster, IndexedGraph } from "../types";
 
 /** The parts of OrbitControls the kit drives. fancy-3d-three's Stage exposes one as `controls`. */
@@ -38,6 +39,8 @@ export interface LayerContext3D {
   camera: THREE.PerspectiveCamera;
   /** 3 floats (0..1 rgb) per node, as the theme and nodeColor resolved them. */
   colors: Float32Array;
+  /** The view's limits (the cosmos reads its comet tail length from them). */
+  limits?: GraphLimits;
 }
 
 /** What a layer gets every frame. Positions are live: animated layouts move them every frame. */
@@ -71,6 +74,10 @@ export interface LayerFrame3D {
   hovered: number;
   matches: ReadonlySet<number> | null;
   linkVisibility: "all" | "focus" | "none";
+  /** Layer visibility by id (a missing id is visible), for layers that draw parts with their own switches. */
+  layers?: Partial<Record<string, boolean>>;
+  /** The selected constellation's id, or null. */
+  constellation?: string | null;
 }
 
 /** A pluggable piece of the 3D scene: the background, the clusters, the links or the nodes. */

@@ -1,11 +1,11 @@
 import { forceLayout, type ForceLayoutOptions } from "../../layout/force";
 import type { GraphLayout } from "../../layout/contract";
 import type { PresetState } from "../../presets/presets2d";
-import type { GraphCluster, GraphNode } from "../../types";
+import type { GraphCluster, GraphData, GraphNode } from "../../types";
 import { DEFAULT_LAYERS, type GraphLayerSpec } from "../../layers";
 import { linkLayer3D, nodeLayer3D } from "../layers";
 import type { GraphRenderers3D } from "../types";
-import { cosmosLayout, type CosmosLayoutOptions } from "./cosmos-layout";
+import { cosmosLayout, prepareCosmos, withLenses, type CosmosLayoutOptions, type CosmosLenses } from "./cosmos-layout";
 import { cosmosDefaults, cosmosLayers, cosmosRenderers, type CosmosRenderOptions } from "./cosmos-renderers";
 import { layeredLayout, layerPlanes, type LayeredLayoutOptions } from "./layered";
 
@@ -33,6 +33,30 @@ export interface GraphPreset3D {
   layers?: GraphLayerSpec[];
   homeYaw?: number;
   homePitch?: number;
+  /**
+   * Runs on the data before it is validated, so a preset can add nodes of its
+   * own (the cosmos's synthetic centres). Its output counts against the limits.
+   */
+  prepare?: (data: GraphData) => GraphData;
+  /**
+   * The same preset with these options (JSON), for a prop that configures it
+   * in place: `<GraphView3D preset="cosmos" cosmos={...}>` calls this.
+   */
+  configure?: (options: CosmosLenses) => GraphPreset3D;
+  /** Seconds a layout change animates, bodies flying from their old positions to their new ones. 0 or absent: instant. */
+  transition?: number;
+  /**
+   * Semantic zoom: per node, the world-space size of what its label names (a
+   * system, an orbit). Labels then compete by that size on screen
+   * (`limits.zoomLabelPx`); `Infinity` always competes, a negative never does.
+   */
+  labelReach?: (index: number, meta: unknown) => number;
+  /** The world radius selecting a node frames (a star's whole system), or null for the default. */
+  frameRadius?: (index: number, meta: unknown) => number | null;
+  /** The breadcrumb path to a node, outermost first, ending with the node. */
+  path?: (index: number, meta: unknown) => number[];
+  /** Layers the preset knows only once the layout has run (one per constellation). */
+  layersFor?: (meta: unknown) => GraphLayerSpec[];
 }
 
 /** A 3D force network: lit spheres and lines. The default. */
@@ -47,16 +71,26 @@ export function network3DPreset(options: ForceLayoutOptions = {}): GraphPreset3D
   };
 }
 
-/** The cosmos: galaxies per node type, stars, orbiting planets and asteroids. The reference example of how far the plug points go. */
+/**
+ * The cosmos: gravity places, light draws. Systems (a star, its planets and
+ * their moons) always orbit; galaxies are optional; free systems are spread by
+ * their light links; comets travel between systems; constellations are drawn
+ * over the sky. Configure it with lenses, here or through the `cosmos` prop.
+ * Default: `systems: { by: "hubs" }`, no galaxies, travellers on.
+ */
 export function cosmosPreset(options: CosmosLayoutOptions & CosmosRenderOptions = {}): GraphPreset3D {
+  const { labelReach, ...defaults } = cosmosDefaults;
   return {
     id: "cosmos",
     title: "Cosmos",
-    description: "Each node type is a spiral galaxy; the best-connected nodes are stars, linked nodes orbit them as planets, unlinked ones drift as asteroids, under a seeded sky.",
+    description: "Gravity places, light draws: stars with orbiting planets and moons, optional spiral galaxies, free systems spread by their links, comets travelling between systems and constellations over a seeded sky.",
     layout: () => cosmosLayout(options),
     renderers: () => cosmosRenderers(options),
-    ...cosmosDefaults,
-    layers: cosmosLayers(),
+    prepare: (data) => prepareCosmos(data, options),
+    configure: (lenses) => cosmosPreset(withLenses(options, lenses ?? {})),
+    ...defaults,
+    labelReach: options.labels === "size" ? undefined : labelReach,
+    layers: cosmosLayers(options),
   };
 }
 

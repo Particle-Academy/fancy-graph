@@ -20,10 +20,34 @@ export interface GraphNode {
   y?: number;
   z?: number;
   fixed?: boolean;
-  /** Where this node sits in the 3D `cosmos` preset. Optional; other views ignore it. */
-  cosmos?: GraphCosmosPlacement;
+  /** Where this node sits in the 3D `cosmos` preset, and how it looks there. Optional; other views ignore it. */
+  cosmos?: GraphCosmosFields;
+  /** Made by a view, not by the data: the cosmos's centres for a field value. Left out of degree ranking. */
+  synthetic?: boolean;
   data?: Record<string, unknown>;
 }
+
+/** A body's surface in the `cosmos` preset. A procedural shader, never an image unless `texture` names one. */
+export type GraphCosmosSkinName = "rocky" | "gas" | "ice" | "cratered" | "lava" | "ocean";
+
+/**
+ * How a node looks in the `cosmos` preset, as plain JSON. Every field is
+ * optional; the preset supplies a default for each body kind. A bad value is
+ * ignored and reported in the layout's `meta.lookIssues`, never thrown.
+ */
+export interface GraphCosmosLook {
+  /** A procedural surface, by name or with its colours (one or two CSS colours). */
+  skin?: GraphCosmosSkinName | { type: GraphCosmosSkinName; colors?: string[] };
+  /** An image the HOST supplies (https, http, a relative path, `data:image/...` or `blob:`), mapped onto the sphere. The kit bundles none. */
+  texture?: string;
+  /** A glowing shell. `true` takes the default for the body. */
+  atmosphere?: boolean | { color?: string; /** 0 to 1, of the radius. */ thickness?: number; /** 0 to 2. */ glow?: number };
+  /** A ring system. `inner` and `outer` are multiples of the radius. */
+  rings?: boolean | { color?: string; inner?: number; outer?: number; /** Radians the ring tips toward the viewer. */ tilt?: number; /** 0 to 1. */ opacity?: number };
+}
+
+/** The `cosmos` field: placement and look, both optional. */
+export type GraphCosmosFields = GraphCosmosPlacement & GraphCosmosLook;
 
 /**
  * Optional placement for the `cosmos` 3D preset, as plain JSON. Absent, the
@@ -42,7 +66,8 @@ export interface GraphCosmosPlacement {
   /**
    * Where this node sits relative to its galaxy core, in the galaxy's disc:
    * `[x, y]` in the disc plane or `[x, y, z]` with z out of it, world units.
-   * The node turns with its galaxy and no longer orbits a star.
+   * The node turns with its galaxy and no longer orbits a star. Outside any
+   * galaxy it is relative to its star instead; with neither, it is reported.
    */
   offset?: [number, number] | [number, number, number];
 }
@@ -54,6 +79,8 @@ export interface GraphLink {
   /** Defaults to 1. Used by layouts, and to keep the strongest links when capped. */
   weight?: number;
   kind?: string;
+  /** Made by a view (the cosmos's gravity to a synthetic centre), not by the data. */
+  synthetic?: boolean;
   data?: Record<string, unknown>;
 }
 
@@ -118,9 +145,10 @@ export interface GraphActivity {
   /**
    * `"layer"`: a layer was switched (`id` is the layer's id). `"links"`: the
    * link visibility mode changed (`id` is the mode). `"motion"`: animation was
-   * paused or resumed (`id` is `"paused"` or `"running"`).
+   * paused or resumed (`id` is `"paused"` or `"running"`). `"constellation"`:
+   * a constellation was selected (`id`) or cleared (`null`).
    */
-  type: "select" | "hover" | "focus" | "camera" | "search" | "layer" | "links" | "motion";
+  type: "select" | "hover" | "focus" | "camera" | "search" | "layer" | "links" | "motion" | "constellation";
   id?: string | null;
   source: GraphActivitySource;
   at: number;

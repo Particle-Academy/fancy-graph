@@ -49,6 +49,8 @@ export interface LayoutRunner {
   /** Advances one frame. Returns true when positions changed. */
   tick(dt: number): boolean;
   clusters(): GraphCluster[] | null;
+  /** An animated layout jumps to animated time `t` (a replacement layout picks up where the last left off). No-op otherwise. */
+  seek(t: number): void;
   setPaused(paused: boolean): void;
   dispose(): void;
 }
@@ -128,6 +130,12 @@ export function createLayoutRunner(layout: GraphLayout, graph: IndexedGraph, env
     },
     clusters() {
       return stepper.clusters ? stepper.clusters(positions) : null;
+    },
+    seek(t) {
+      if (!animated || !stepper.step || !Number.isFinite(t) || env.reducedMotion) return;
+      time = t;
+      stepper.step(positions, { time, dt: 0 });
+      pin();
     },
     setPaused(p) {
       paused = p;

@@ -10,6 +10,124 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**The cosmos is redesigned (breaking, in a minor: pre-1.0).** Gravity places,
+light draws: systems always orbit, galaxies are optional, and every centre is
+a node. Design: `.ai/plans/fancy-graph-cosmos-design.md` (approved 2026-11-28).
+
+**Consumer action**, only if you use the `cosmos` preset (2D views, `network`
+and `layered` are unchanged):
+
+1. **To keep 0.3.0's galaxy per node type, ask for it.** The cosmos no longer
+   makes galaxies on its own. Pass
+   `<GraphView3D preset="cosmos" cosmos={{ galaxies: { by: { field: "type" } } }} />`
+   (or `cosmosPreset({ galaxies: { by: { field: "type" } } })`). `type` reads
+   `node.group`, as before. Without it you get free systems spread by their
+   links, which is the new default.
+2. **Galaxy centres are now nodes.** With a `{ field }` lens the view adds one
+   synthetic node per value, id `cosmos:galaxy:<value>` (or
+   `cosmos:system:<value>`), `synthetic: true`, labelled with the value. They
+   count in `getState().nodeCount` and `data-fancy-graph-node-count`, can be
+   selected, hovered and searched, and count against `limits.maxNodes` /
+   `maxLinks`. If you count or list nodes, skip `node.synthetic`. If you passed
+   `layout={cosmosLayout(...)}` and `renderers` without the preset, run your
+   data through `prepareCosmos(data, lenses)` first, or use the preset.
+3. **Galaxy labels are just the name** (`"agent"`, was `"agent · 255"`). Pass
+   `clusterLabel` to keep the count.
+4. **The layer list changed**: `comets` (comet tails) is new, `links` is
+   labelled "Light", and with constellations there are `constellations` and
+   one `constellation:<id>` per figure. A saved layer map keeps working:
+   unknown ids are ignored, missing ones take their default.
+5. **Gravity links are not drawn as lines any more**: the orbit is the drawing
+   (switch on the `orbits` layer to see the rings). Only light links get arcs.
+
+If none of these apply, upgrading needs nothing.
+
+### Added
+
+- **Lenses, as JSON, through a new `cosmos` prop** on `GraphView3D` /
+  `GraphScene3D` (or `cosmosPreset(options)`):
+  - `systems: { by: { relation } | { field } | "hubs" | "none" }`: a relation
+    makes its source orbit its target (the star); a source of a planet is a
+    moon. `{ field }` makes a star per value. `"hubs"` (the default) makes the
+    best-connected nodes stars. `"none"` makes every node a lone star, a
+    starfield shaped by its links.
+  - `galaxies: { by: { relation } | { field } }`: optional; systems sit on the
+    arms of their galaxy's core.
+  - `sort: { by: "degree" | "label" | "id" | { field }, dir }`: orbit order
+    (inner first) and order along the arms. It reorders and never regroups.
+  - `constellations: [{ id, label, color, match: { relation } | { field, value } | { linkedTo } }]`
+    or `{ by: { field } }` (one per value).
+  - `comets`: `"multi-membership"` (the default), `{ field, within, now }`, or
+    both in an array; `false` turns them off.
+  - `labels: "semantic" | "size"`.
+- **Every centre is a node.** A preset can now `prepare(data)` before the view
+  validates it (`GraphPreset3D.prepare`); the cosmos uses it for synthetic
+  stars and cores, and leaves synthetic gravity out of degree ranking
+  (`meta.lightDegree`). `GraphNode.synthetic` and `GraphLink.synthetic` mark them.
+- **Free systems are spread by their light links**, so related systems sit
+  near each other, and no two systems or galaxies overlap. Galaxies and free
+  systems turn slowly about the centre together.
+- **Animated transitions.** Changing a lens or the sort flies every body from
+  its old orbit to its new one (`GraphPreset3D.transition`, 1.2 s for the
+  cosmos; instant under reduced motion). An animated layout that replaces
+  another picks up its animated time (`LayoutRunner.seek`).
+- **Comets.** A node with several memberships (several values of the systems
+  field, or several gravity links) becomes a traveller on an eccentric loop
+  through each of its systems, home first. A node whose time field is within
+  the window is an arrival: it keeps its orbit and gets a tail, longer for
+  newer. Tails are drawn on the GPU: particles live in the geometry, and the
+  CPU writes three path samples per comet per frame. They are their own
+  `comets` layer and follow pause and reduced motion. `cometTailPoints()`.
+- **Constellations**: figures over the sky (a minimum spanning tree over the
+  members' resting places, the same on every build), each its own layer,
+  labelled with a clickable `data-fancy-graph-constellation-label="<id>"`, and
+  selectable: `selectedConstellation` / `defaultSelectedConstellation` /
+  `onSelectedConstellationChange`, the handle's `selectConstellation()` and
+  `getConstellations()`, `getState().constellation`, and
+  `data-fancy-graph-constellation` on the root. A selected constellation
+  highlights its members and the view frames them. Activity type
+  `"constellation"`. Placement never changes.
+- **Light links as arcs** that glow on focus (`cosmosLight()`); between two
+  bodies in one galaxy they run along the arm. `lightArcPoints()` /
+  `writeLightArc()` give the path.
+- **Semantic zoom labels, on by default**: from far, galaxy and constellation
+  names; closer, star names; closer still, planets and moons
+  (`GraphPreset3D.labelReach`, `limits.zoomLabelPx`). `labels: "size"` gives
+  back the 0.3.0 rule.
+- **Flight frames the scale you picked**: selecting a star frames its whole
+  system, a core its galaxy (`GraphPreset3D.frameRadius`). **Breadcrumbs**
+  (Universe > galaxy > star > planet > moon): `getBreadcrumbs()`,
+  `onBreadcrumbsChange`, `data-fancy-graph-breadcrumbs`; select a crumb's id to
+  climb back out.
+- **Data-driven looks**: `node.cosmos.skin` (`rocky`, `gas`, `ice`, `cratered`,
+  `lava`, `ocean`, with up to two colours), `atmosphere` (colour, thickness,
+  glow), `rings` (colour, inner, outer, tilt, opacity) and `node.size`, over
+  preset defaults per body kind (`cosmosPreset({ looks })`). Skins are
+  procedural shaders. `node.cosmos.texture` maps a HOST-SUPPLIED image (https,
+  http, relative, `data:image/` or `blob:`; anything else is refused); the kit
+  bundles no images. Bad values are ignored and listed in `meta.lookIssues`.
+- New body kinds `MOON`, `CORE` and `COMET`; stars and cores get selection rings.
+- New limits, all configurable: `maxOrbitDepth` (4), `maxSpreadTicks` (160),
+  `maxComets` (256), `maxCometStops` (6), `maxCometTail` (400),
+  `maxConstellations` (32), `maxConstellationMembers` (96), `maxTextures` (16),
+  `zoomLabelPx` (22).
+- `GraphPreset3D` gains `prepare`, `configure`, `transition`, `labelReach`,
+  `frameRadius`, `path` and `layersFor`, so any 3D preset can use them.
+  `LayerFrame3D` gains `layers` and `constellation`; `LayerContext3D` gains `limits`.
+
+### Changed
+
+- **`cosmosOrbits()` is one instanced line set** (a unit circle, each ring's
+  centre and axes per instance), so moons' rings follow their moving planets.
+  It was one line set per galaxy.
+- `node.cosmos.offset` outside a galaxy is relative to the node's star; with
+  neither it is reported in `meta.placementIssues`.
+- `CosmosGalaxy` gains `key`, `core` and `systems`; its cluster's id is the
+  key (the field value, or the core node's id) and `data.core` the core's id.
+  `CosmosBody` gains `depth`, `system`, `synthetic`, `extent`, `spacing`,
+  `tail` and `look`; `galaxy` is -1 in open space.
+- `cosmosProps()` in the example returns only view props.
+
 ## [0.3.0] - 2026-11-27
 
 **Consumer action: none.** The `cosmos` preset looks different (cores,

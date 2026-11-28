@@ -3,7 +3,18 @@
  * <Stage>. This is the only entry that imports `three`; install `three` and
  * `@particle-academy/fancy-3d-three` to use it.
  */
-export { GraphScene3D, GraphSceneOnStage, GraphView3D, type GraphScene3DHandle, type GraphScene3DProps, type GraphSceneOnStageProps, type GraphView3DProps } from "./GraphScene";
+export {
+  GraphScene3D,
+  GraphSceneOnStage,
+  GraphView3D,
+  type GraphBreadcrumb,
+  type GraphConstellationInfo,
+  type GraphScene3DHandle,
+  type GraphScene3DProps,
+  type GraphScene3DState,
+  type GraphSceneOnStageProps,
+  type GraphView3DProps,
+} from "./GraphScene";
 export { StageEngine, type ClusterSource3D, type Engine3DOptions } from "./engine";
 export {
   createInstancedLayer,
@@ -31,7 +42,66 @@ export {
   type GraphPreset3D,
   type GraphPreset3DId,
 } from "./presets/presets3d";
-export { ASTEROID, PLANET, STAR, cosmosLayout, galaxyLocal, spiralPoint, type BodyKind, type CosmosBody, type CosmosGalaxy, type CosmosLayoutOptions, type CosmosMeta, type CosmosPlacementIssue } from "./presets/cosmos-layout";
-export { cosmosDefaults, cosmosDust, cosmosLayers, cosmosOrbits, cosmosRenderers, type CosmosCoreOptions, type CosmosOrbitOptions, type CosmosRenderOptions } from "./presets/cosmos-renderers";
+export {
+  ASTEROID,
+  COMET,
+  CORE,
+  GALAXY_LINK,
+  GALAXY_PREFIX,
+  MOON,
+  PLANET,
+  SKINS,
+  STAR,
+  SYSTEM_LINK,
+  SYSTEM_PREFIX,
+  cometTailPoints,
+  cosmosLayout,
+  fieldValues,
+  galaxyLocal,
+  lightArcPoints,
+  liveVector,
+  prepareCosmos,
+  readField,
+  safeTextureUrl,
+  spiralPoint,
+  withLenses,
+  writeLightArc,
+  type ArcGalaxy,
+  type BodyKind,
+  type CosmosBody,
+  type CosmosComet,
+  type CosmosCometLens,
+  type CosmosConstellation,
+  type CosmosConstellationMatch,
+  type CosmosConstellationSpec,
+  type CosmosGalaxiesLens,
+  type CosmosGalaxy,
+  type CosmosGrouping,
+  type CosmosLayoutOptions,
+  type CosmosLenses,
+  type CosmosLook,
+  type CosmosLookKind,
+  type CosmosMeta,
+  type CosmosPlacementIssue,
+  type CosmosSortKey,
+  type CosmosSortLens,
+  type CosmosSystemsLens,
+} from "./presets/cosmos-layout";
+export {
+  cosmosCometTails,
+  cosmosConstellations,
+  cosmosDefaults,
+  cosmosDust,
+  cosmosLayers,
+  cosmosLight,
+  cosmosOrbits,
+  cosmosRenderers,
+  cosmosTextures,
+  type CosmosCometOptions,
+  type CosmosCoreOptions,
+  type CosmosLightOptions,
+  type CosmosOrbitOptions,
+  type CosmosRenderOptions,
+} from "./presets/cosmos-renderers";
 export type { GraphControlsProps } from "../react/controls";
 export { layeredLayout, layerPlanes, type LayerBy, type LayeredLayoutOptions } from "./presets/layered";

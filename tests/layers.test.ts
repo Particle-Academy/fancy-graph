@@ -36,7 +36,7 @@ describe("layer visibility (headless)", () => {
     for (const p of Object.values(GRAPH_PRESETS_3D)) expect(p.layers?.map((l) => l.id)).toEqual(expect.arrayContaining(["links", "labels"]));
     expect(GRAPH_PRESETS_3D.layered.layers!.map((l) => l.id)).toContain("clusters");
     const cosmos = resolveLayers(GRAPH_PRESETS_3D.cosmos.layers!);
-    expect(cosmos.map((l) => l.id).sort()).toEqual(["background", "clusters", "cores", "labels", "links", "orbits"]);
+    expect(cosmos.map((l) => l.id).sort()).toEqual(["background", "clusters", "comets", "cores", "labels", "links", "orbits"]);
     // Orbit paths are new; off by default so the published look is unchanged.
     expect(cosmos.find((l) => l.id === "orbits")!.visible).toBe(false);
   });

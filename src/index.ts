@@ -7,7 +7,7 @@
 // The core is re-exported module by module (not `export * from "./core"`), so the
 // bundler does not emit an empty shared chunk for core.ts. tests/entry-isolation.test.ts
 // holds the two lists equal.
-export type { GraphActivity, GraphActivitySource, GraphCluster, GraphCosmosPlacement, GraphData, GraphLink, GraphNode, IndexedGraph, IndexedLink, Vec3 } from "./types";
+export type { GraphActivity, GraphActivitySource, GraphCluster, GraphCosmosFields, GraphCosmosLook, GraphCosmosPlacement, GraphCosmosSkinName, GraphData, GraphLink, GraphNode, IndexedGraph, IndexedLink, Vec3 } from "./types";
 export { DEFAULT_LIMITS, resolveLimits, truncateLabel, type GraphLimits } from "./limits";
 export { normalizeGraph } from "./graph";
 export { DEFAULT_LAYERS, effectiveLinkVisibility, isLayerVisible, layerMap, mergeLayerSpecs, resolveLayers, type GraphLayerSpec, type GraphLayerState, type GraphLayerVisibility, type LinkVisibility } from "./layers";
@@ -38,7 +38,7 @@ export {
   type PickOptions,
   type SearchOptions,
 } from "./interaction";
-export { labelCandidates, LabelLayer, placeLabels, type CandidateInput, type ClusterLabel, type LabelCandidate, type PlacedLabel, type PlaceOptions } from "./labels";
+export { labelCandidates, LabelLayer, placeLabels, type CandidateInput, type ClusterLabel, type ConstellationLabel, type LabelCandidate, type PlacedLabel, type PlaceOptions } from "./labels";
 export {
   clampCamera2D,
   fitCamera2D,

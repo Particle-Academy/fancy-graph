@@ -105,6 +105,15 @@ export interface CandidateInput {
   focusNeighbors?: readonly number[];
   /** Label nothing else while something is focused (neighbourhood mode). */
   cullOthers?: boolean;
+  /**
+   * Semantic zoom: per node, the projected size (CSS px) of what its label
+   * names, such as a star's whole system. With it, a node competes when its
+   * reach is at least `reachMinPx` (instead of its radius at least
+   * `labelMinPx`), bigger reach first; `Infinity` always competes, a negative
+   * reach never does (only the forced labels reach it).
+   */
+  reach?: Float32Array;
+  reachMinPx?: number;
 }
 
 /**
@@ -124,7 +133,8 @@ export function labelCandidates(input: CandidateInput): LabelCandidate[] {
     if (depth <= 0) continue;
     const x = screen[i * 4], y = screen[i * 4 + 1], r = screen[i * 4 + 2];
     if (x < -40 || y < -20 || x > width + 40 || y > height + 20) continue;
-    let priority = r;
+    const reach = input.reach ? input.reach[i] : r;
+    let priority = input.reach ? (reach === Infinity ? 5e3 : Math.max(0, Math.min(4e3, reach))) : r;
     let forced = false;
     if (i === focused) {
       priority += 9e6;
@@ -140,7 +150,7 @@ export function labelCandidates(input: CandidateInput): LabelCandidate[] {
       forced = true;
     } else if (matches?.has(i)) priority += 1e5;
     else if (states[i] === NODE_NEIGHBOR) priority += 1e4;
-    else if (quiet || r < input.labelMinPx) continue;
+    else if (quiet || (input.reach ? reach < 0 || reach < (input.reachMinPx ?? input.labelMinPx) : r < input.labelMinPx)) continue;
     else if (states[i] !== NODE_ACTIVE && hovered >= 0) priority *= 0.5;
     out.push({ index: i, x, y, radius: r, text: input.text(i), priority, forced });
   }
@@ -164,6 +174,20 @@ const CLUSTER_CSS =
   "font:600 12px/16px ui-sans-serif,system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;" +
   "text-shadow:0 0 6px var(--fancy-graph-label-halo,#000),0 0 2px var(--fancy-graph-label-halo,#000)";
 
+export interface ConstellationLabel {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  color?: string;
+  selected?: boolean;
+}
+
+const CONSTELLATION_CSS =
+  "position:absolute;left:0;top:0;white-space:nowrap;pointer-events:auto;cursor:pointer;will-change:transform;display:none;" +
+  "font:italic 500 13px/16px ui-serif,Georgia,serif;letter-spacing:.08em;" +
+  "text-shadow:0 0 6px var(--fancy-graph-label-halo,#000),0 0 2px var(--fancy-graph-label-halo,#000)";
+
 /**
  * A pooled DOM layer for labels. Text goes in through `textContent` only, so a
  * label is inert whatever it contains. Elements are reused and moved with a
@@ -172,6 +196,8 @@ const CLUSTER_CSS =
 export class LabelLayer {
   private readonly pool: HTMLDivElement[] = [];
   private readonly clusters: HTMLDivElement[] = [];
+  private readonly constellations: HTMLDivElement[] = [];
+  private onConstellation: ((id: string) => void) | null = null;
 
   constructor(
     private readonly root: HTMLElement,
@@ -230,9 +256,45 @@ export class LabelLayer {
     });
   }
 
+  /**
+   * Constellation names: clickable (the one label kind that takes pointer
+   * events), each carrying `data-fancy-graph-constellation-label="<id>"`. Text
+   * through `textContent` only.
+   */
+  renderConstellations(labels: ConstellationLabel[], onClick: (id: string) => void): void {
+    this.onConstellation = onClick;
+    while (this.constellations.length < labels.length) {
+      const el = this.root.ownerDocument.createElement("div");
+      el.style.cssText = CONSTELLATION_CSS;
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const id = el.getAttribute("data-fancy-graph-constellation-label");
+        if (id) this.onConstellation?.(id);
+      });
+      el.addEventListener("pointerdown", (e) => e.stopPropagation());
+      this.root.appendChild(el);
+      this.constellations.push(el);
+    }
+    this.constellations.forEach((el, i) => {
+      const l = labels[i];
+      if (!l) {
+        if (el.style.display !== "none") el.style.display = "none";
+        return;
+      }
+      if (el.textContent !== l.text) el.textContent = l.text;
+      if (el.getAttribute("data-fancy-graph-constellation-label") !== l.id) el.setAttribute("data-fancy-graph-constellation-label", l.id);
+      el.dataset.fancyGraphConstellationState = l.selected ? "selected" : "normal";
+      el.style.color = l.color ?? "var(--fancy-graph-label,#e8eef5)";
+      el.style.opacity = l.selected ? "1" : "0.72";
+      el.style.transform = `translate(${l.x.toFixed(1)}px,${l.y.toFixed(1)}px) translate(-50%,-50%)`;
+      el.style.display = "block";
+    });
+  }
+
   dispose(): void {
-    for (const el of [...this.pool, ...this.clusters]) el.remove();
+    for (const el of [...this.pool, ...this.clusters, ...this.constellations]) el.remove();
     this.pool.length = 0;
     this.clusters.length = 0;
+    this.constellations.length = 0;
   }
 }
