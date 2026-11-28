@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-28
+
 **The cosmos is redesigned (breaking, in a minor: pre-1.0).** Gravity places,
 light draws: systems always orbit, galaxies are optional, and every centre is
 a node. Design: `.ai/plans/fancy-graph-cosmos-design.md` (approved 2026-11-28).
