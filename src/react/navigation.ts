@@ -1,4 +1,4 @@
-import { cycleNeighbor, neighborLinks, stepInDirection, type StepDirection } from "../interaction";
+import { cycleNeighbor, stepInDirection, stepLinks, type StepDirection } from "../interaction";
 import type { IndexedGraph } from "../types";
 
 /** Where link cycling is: the node whose links are being walked, and the position in them. */
@@ -44,7 +44,7 @@ export function stepFocusIndex(graph: IndexedGraph, cycle: CycleState, focused: 
     return best >= 0 ? best : 0;
   }
   if (dir === "next" || dir === "previous") {
-    const links = cycle.anchor >= 0 ? neighborLinks(graph, cycle.anchor) : [];
+    const links = cycle.anchor >= 0 ? stepLinks(graph, cycle.anchor) : [];
     const onCycle = cycle.position >= 0 && links[cycle.position]?.index === focused;
     if (!onCycle) {
       cycle.anchor = focused;

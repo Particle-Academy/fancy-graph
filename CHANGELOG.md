@@ -125,11 +125,16 @@ they are now kept out of every count, search and neighbour list (see Fixed).
     `-synthetic-link-count` and `getState().syntheticNodeCount` /
     `syntheticLinkCount`.
   - `neighbors(id)` lists the input's links first, in input order, then a
-    gravity link to a core LAST, marked `synthetic: true` (`NeighborLink`). It
-    is kept rather than dropped so a person stepping with `stepFocus("next")`
-    can still reach the core, after every real neighbour. Directional steps
-    take a core only when no input neighbour lies that way; with nothing
-    focused, `stepFocus` lands on the best-connected input node.
+    gravity link to a core LAST, marked `synthetic: true` (`NeighborLink`).
+  - `stepFocus("next")` / `("previous")` (and `cycleNeighbor`) cycle a real
+    node's INPUT links only, and wrap among them: `next` from n15 wraps to n1,
+    `previous` from n1 to n15. The core's gravity link is never a step (the
+    lab's check on the first 0.5.0 build found `previous` from n1 wrapping to
+    the core). A core stays reachable by click, breadcrumbs or focusing it
+    directly, and a focused core's own stepping walks its members. A real node
+    with no input links stays put. Directional steps take a core only when no
+    input neighbour lies that way; with nothing focused, `stepFocus` lands on
+    the best-connected input node.
   - A core is never highlighted or labelled as a neighbour (neighbourhood mode
     labels the focus and its real neighbours only). Selecting or focusing a
     core still highlights its members.

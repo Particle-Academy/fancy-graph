@@ -168,7 +168,8 @@ export function isSyntheticLink(graph: IndexedGraph, link: IndexedGraph["links"]
  * A node's links in a stable order, each with the node at the other end: the
  * input's links first, in input order, then any synthetic ones (a cosmos
  * gravity link to its galaxy core), marked `synthetic: true`. Those are kept,
- * last, so a person stepping with `next` can still reach the core.
+ * last and flagged, so a consumer sees every link; `next` / `previous` focus
+ * stepping skips them (see `stepLinks`).
  */
 export function neighborLinks(graph: IndexedGraph, index: number): NeighborLink[] {
   const real: NeighborLink[] = [];
@@ -227,9 +228,20 @@ export function stepInDirection(graph: IndexedGraph, from: number, dir: ScreenDi
   return best;
 }
 
-/** The next (delta 1) or previous (-1) link of an anchor after link position (-1 = none yet). */
-export function cycleNeighbor(graph: IndexedGraph, anchor: number, position: number, delta: 1 | -1): { position: number; index: number } | null {
+/**
+ * The links `next` / `previous` focus stepping walks from an anchor: a real
+ * node's input links only, never a synthetic one (a cosmos core stays
+ * reachable by click, breadcrumbs or a direct focus). A synthetic anchor (a
+ * core) walks all of its links, which are its members.
+ */
+export function stepLinks(graph: IndexedGraph, anchor: number): NeighborLink[] {
   const links = neighborLinks(graph, anchor);
+  return graph.nodes[anchor]?.synthetic === true ? links : links.filter((l) => l.synthetic !== true);
+}
+
+/** The next (delta 1) or previous (-1) of an anchor's `stepLinks` after position (-1 = none yet). */
+export function cycleNeighbor(graph: IndexedGraph, anchor: number, position: number, delta: 1 | -1): { position: number; index: number } | null {
+  const links = stepLinks(graph, anchor);
   if (!links.length) return null;
   const p = position < 0 ? (delta > 0 ? 0 : links.length - 1) : (((position + delta) % links.length) + links.length) % links.length;
   return { position: p, index: links[p].index };

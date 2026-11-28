@@ -125,8 +125,10 @@ Gravity places, light draws. Tell it which relations are gravity with
   `syntheticNodeCount` / `syntheticLinkCount` and `-synthetic-node-count` /
   `-synthetic-link-count`), search never returns them, and they are never
   highlighted or labelled as a neighbour. `neighbors(id)` lists a member's
-  gravity link to its core LAST, marked `synthetic: true`, so `stepFocus("next")`
-  reaches every real neighbour first and the core after. A core can be
+  gravity link to its core LAST, marked `synthetic: true`. `stepFocus("next")` /
+  `("previous")` cycle a member's real links only, never its core; reach a
+  core by click, breadcrumbs or `focus(id)`, and a focused core steps through
+  its members. A core can be
   selected or focused; the callback's `meta` and the activity event then carry
   `synthetic: true`. Skip `node.synthetic` when you list nodes. Using `layout={cosmosLayout(...)}` without the preset?
   Pass `data={prepareCosmos(data, lenses)}`.
@@ -326,7 +328,7 @@ Everything a gamepad needs is on the handle; read the pad in your own
 const view = useRef<GraphViewHandle>(null); // or GraphScene3DHandle
 // Buttons: move the focus along links.
 view.current!.stepFocus("up" | "down" | "left" | "right");   // nearest linked node in that screen direction
-view.current!.stepFocus("next" | "previous");                // cycle the links of the node where cycling began
+view.current!.stepFocus("next" | "previous");                // cycle the real (input) links of the node where cycling began
 view.current!.neighbors(id);                                 // that node's links: input links in input order, then synthetic ones (marked)
 // Sticks: analog camera, per frame.
 view.current!.orbit(dxRadians, dyRadians);                   // 3D; returns false in 2D (no rotation)

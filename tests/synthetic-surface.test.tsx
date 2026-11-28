@@ -12,7 +12,7 @@ import { createRoot, type Root } from "react-dom/client";
 import * as THREE from "@particle-academy/fancy-3d-three/three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GraphView, type GraphViewHandle } from "../src/index";
-import { computeNodeStates, NODE_DIMMED, NODE_NEIGHBOR, normalizeGraph, searchNodes, type GraphData } from "../src/core";
+import { computeNodeStates, cycleNeighbor, NODE_DIMMED, NODE_NEIGHBOR, normalizeGraph, searchNodes, stepInDirection, type GraphData } from "../src/core";
 import { freshCycle, stepFocusIndex } from "../src/react/navigation";
 import { GraphSceneOnStage, prepareCosmos, type GraphScene3DHandle, type GraphSceneOnStageProps, type StageLike } from "../src/three/index";
 
@@ -103,15 +103,39 @@ describe("the cosmos's synthetic centres stay out of the input-facing surface", 
     expect(ns.map((n) => n.synthetic === true)).toEqual([false, false, false, false, true]);
   });
 
-  it("stepFocus('next') from n4 reaches its first real link, n1, and the core only after the real ones", () => {
-    const s = mount3D({ defaultFocused: "n4" });
+  const steps = (s: ReturnType<typeof mount3D>, dirs: ("next" | "previous")[]) => {
     const seq: (string | null)[] = [];
-    for (let k = 0; k < 5; k++)
+    for (const d of dirs)
       act(() => {
-        seq.push(s.ref.current!.stepFocus("next"));
+        seq.push(s.ref.current!.stepFocus(d));
         s.frame();
       });
-    expect(seq).toEqual(["n1", "n13", "n14", "n15", "cosmos:galaxy:event"]);
+    return seq;
+  };
+
+  it("stepFocus('next') from n4 cycles only its real links, and wraps from n15 to n1, never to the core", () => {
+    const s = mount3D({ defaultFocused: "n4" });
+    expect(steps(s, ["next", "next", "next", "next", "next"])).toEqual(["n1", "n13", "n14", "n15", "n1"]);
+  });
+
+  it("stepFocus('previous') from n1 wraps to n15, never to the core (lab, d3002e3)", () => {
+    const s = mount3D({ defaultFocused: "n4" });
+    expect(steps(s, ["next", "previous", "previous"])).toEqual(["n1", "n15", "n14"]);
+  });
+
+  it("stepFocus('previous') from the focus itself starts on its last REAL link", () => {
+    const s = mount3D({ defaultFocused: "n4" });
+    expect(steps(s, ["previous"])).toEqual(["n15"]);
+  });
+
+  it("a core stays focusable directly, and its own stepping walks its members", () => {
+    const s = mount3D();
+    act(() => s.ref.current!.focus("cosmos:galaxy:event"));
+    const seq = steps(s, ["next", "next"]);
+    for (const id of seq) {
+      expect(id!.startsWith("cosmos:")).toBe(false);
+      expect(Number(id!.slice(1)) % 2).toBe(0);
+    }
   });
 
   it("stepFocus with nothing focused lands on the best-connected INPUT node, never a core", () => {
@@ -182,6 +206,54 @@ describe("the headless core treats synthetic nodes the same way", () => {
   it("stepFocusIndex starts on the best-connected input node", () => {
     const i = stepFocusIndex(g, freshCycle(), -1, -1, "next", new Float32Array(0));
     expect(g.nodes[i].synthetic).not.toBe(true);
+  });
+
+  it("cycleNeighbor walks only a real node's input links, both ways, wrapping past the core", () => {
+    const n4 = at("n4");
+    const ids = (r: { index: number } | null) => (r ? g.nodes[r.index].id : null);
+    expect(ids(cycleNeighbor(g, n4, -1, -1))).toBe("n15");
+    expect(ids(cycleNeighbor(g, n4, 0, -1))).toBe("n15");
+    expect(ids(cycleNeighbor(g, n4, 3, 1))).toBe("n1");
+  });
+
+  it("stepFocusIndex 'previous' from n1 (anchored on n4) wraps to n15", () => {
+    const cycle = freshCycle();
+    const n1 = stepFocusIndex(g, cycle, at("n4"), -1, "next", new Float32Array(0));
+    expect(g.nodes[n1].id).toBe("n1");
+    expect(g.nodes[stepFocusIndex(g, cycle, n1, -1, "previous", new Float32Array(0))].id).toBe("n15");
+  });
+
+  it("a core's own cycle walks its members", () => {
+    const core = at("cosmos:galaxy:event");
+    const r = cycleNeighbor(g, core, -1, 1);
+    expect(r).not.toBeNull();
+    expect(g.nodes[r!.index].synthetic).not.toBe(true);
+  });
+
+  it("a real node with no input links does not step to its core by next / previous", () => {
+    // n0 has no input links; its only link is the gravity link to its galaxy core.
+    expect(cycleNeighbor(g, at("n0"), -1, 1)).toBeNull();
+    expect(stepFocusIndex(g, freshCycle(), at("n0"), -1, "next", new Float32Array(0))).toBe(at("n0"));
+  });
+
+  it("a screen-direction step takes the core only when no real neighbour lies that way", () => {
+    const n4 = at("n4");
+    const core = at("cosmos:galaxy:event");
+    const screen = new Float32Array(g.nodes.length * 4);
+    const put = (i: number, x: number, y: number) => screen.set([x, y, 5, 1], i * 4);
+    put(n4, 500, 300);
+    put(at("n1"), 600, 300); // right
+    put(at("n13"), 400, 300); // left
+    put(at("n14"), 500, 200); // up
+    put(at("n15"), 500, 400); // down, further than the core
+    put(core, 650, 300); // right too, further than n1
+    expect(stepInDirection(g, n4, "right", screen)).toBe(at("n1"));
+    // Move n1 off to the left: now only the core lies to the right.
+    put(at("n1"), 380, 300);
+    expect(stepInDirection(g, n4, "right", screen)).toBe(core);
+    // The core nearer than a real node in the same direction still loses to it.
+    put(core, 500, 350);
+    expect(stepInDirection(g, n4, "down", screen)).toBe(at("n15"));
   });
 });
 
