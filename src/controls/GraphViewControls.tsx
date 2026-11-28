@@ -23,6 +23,10 @@ export interface GraphViewControlsLabels {
   linksFocus: string;
   /** The animation switch (the cosmos's orbits). */
   motion: string;
+  /** The full-screen button, while not full screen. */
+  fullscreenEnter: string;
+  /** The full-screen button, while full screen. */
+  fullscreenExit: string;
 }
 
 export const DEFAULT_CONTROLS_LABELS: GraphViewControlsLabels = {
@@ -33,6 +37,8 @@ export const DEFAULT_CONTROLS_LABELS: GraphViewControlsLabels = {
   linksAll: "All",
   linksFocus: "Selection",
   motion: "Motion",
+  fullscreenEnter: "Enter full screen",
+  fullscreenExit: "Exit full screen",
 };
 
 export interface GraphViewControlsProps extends GraphControlsProps {
@@ -111,6 +117,22 @@ export function GraphViewControls(props: GraphViewControlsProps) {
           >
             {t.clearSelection}
           </Button>
+        )}
+        {props.fullscreenAvailable && (
+          <Button
+            size="sm"
+            icon={props.fullscreen ? "minimize-2" : "maximize-2"}
+            data-fancy-graph-control="fullscreen"
+            data-fancy-graph-toggle="fullscreen"
+            aria-pressed={props.fullscreen}
+            aria-label={props.fullscreen ? t.fullscreenExit : t.fullscreenEnter}
+            title={props.fullscreen ? t.fullscreenExit : t.fullscreenEnter}
+            active={props.fullscreen}
+            color={props.fullscreen ? color : undefined}
+            // A pointer click leaves focus on the canvas, whose keys drive the camera.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => props.onFullscreenChange(!props.fullscreen)}
+          />
         )}
         <Button size="sm" icon="layers" data-fancy-graph-control="panel" aria-expanded={open} aria-controls={panelId} active={open} color={open ? color : undefined} onClick={() => setOpen(!open)}>
           {t.panel}

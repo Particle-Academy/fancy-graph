@@ -7,15 +7,17 @@ is, is in [README.md](./README.md). Notes for working ON this repo's code are in
 ## Install
 
 ```bash
-# 2D only: no 3D dependency at all
+# 2D only: no WebGL or three.js (npm 7+ adds the fancy-3d peer for full screen)
 npm install @particle-academy/fancy-graph
 
 # 2D and 3D
 npm install @particle-academy/fancy-graph @particle-academy/fancy-3d-three @particle-academy/fancy-3d three
 ```
 
-- **Peers:** `react ^19`, `react-dom ^19`, and `@particle-academy/fancy-3d-three
-  >=0.3.0` as an OPTIONAL peer, needed only for the `./three` entry. fancy-graph
+- **Peers:** `react ^19`, `react-dom ^19`, `@particle-academy/fancy-3d >=0.7.0`
+  (React only: every view's full screen comes from its `./fullscreen` hook), and
+  `@particle-academy/fancy-3d-three >=0.5.0` as an OPTIONAL peer, needed only
+  for the `./three` entry. fancy-graph
   never declares `three`: its 3D code imports three.js only through
   `@particle-academy/fancy-3d-three/three`, so it always shares the Stage's copy.
   `three` is installed because fancy-3d-three needs it. **Node:** `>=22`. No
@@ -227,11 +229,28 @@ carries `data-fancy-graph-preset` and `data-fancy-graph-theme`.
   `defaultPaused` / `onPausedChange` (freezes animated layouts such as the
   cosmos's orbits). Activity events: `layer` (id = layer id), `links` (id =
   mode), `motion` (id = `paused` / `running`).
+- **Full screen, on by default.** Every view shows a full-screen button that
+  full-screens its ROOT, so the controls overlay, labels, selection, keyboard
+  and gamepad focus and camera controls all keep working inside. Put the
+  host's breadcrumbs, fact cards and selects in **`overlay`** (drawn inside
+  the root); anything rendered beside the view stays behind. The view's own
+  button shows when there is no `controls` overlay; `GraphViewControls`
+  carries `[data-fancy-graph-control="fullscreen"]` /
+  `data-fancy-graph-toggle="fullscreen"` instead; `fullscreenButton` forces
+  it on or off. Controlled `fullscreen` / `defaultFullscreen` /
+  `onFullscreenChange(on, { source })`, `fullscreenLabels`, handle
+  `setFullscreen(on, { source })` (returns false where nothing owns full
+  screen), `getState().fullscreen` / `fullscreenMode`, activity
+  `fullscreen` (`on` / `off`). The Fullscreen API, else a fixed
+  full-viewport mode (iPhone Safari, or an agent's request with no user
+  gesture). Esc and the button exit. The root carries
+  `data-fancy-3d-fullscreen` (fancy-3d's handle).
 - **View-controls overlay, opt-in:** `controls={GraphViewControls}` from
   `/controls`, or any component taking `GraphControlsProps` (`selected`,
   `selectedLabel`, `onClearSelection`, `layers`, `onLayerChange`,
   `linkVisibility`, `onLinkVisibilityChange`, `animated`, `paused`,
-  `onPausedChange`). The view wires every prop. Handles:
+  `onPausedChange`, `fullscreen`, `fullscreenAvailable`, `onFullscreenChange`).
+  The view wires every prop. Handles:
   `[data-fancy-graph-controls]`, `[data-fancy-graph-control="clear-selection" | "panel" | "layer" | "link-visibility" | "motion"]`
   on each control's root, and `[data-fancy-graph-layer="<id>"]` on each layer
   switch's root. **To click one, use `data-fancy-graph-toggle`**, which sits on

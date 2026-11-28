@@ -3,6 +3,7 @@ import { normalizeGraph } from "../graph";
 import { searchNodes } from "../interaction";
 import { DEFAULT_LAYERS, layerMap, resolveLayers, type GraphLayerSpec, type GraphLayerState, type GraphLayerVisibility, type LinkVisibility } from "../layers";
 import type { GraphControlsProps } from "./controls";
+import type { GraphFullscreenProps } from "./fullscreen";
 import { resolveLimits, type GraphLimits } from "../limits";
 import type { GraphThemeInput } from "../theme";
 import type { GraphActivity, GraphActivitySource, GraphData, GraphNode, IndexedGraph } from "../types";
@@ -12,7 +13,7 @@ export interface ChangeMeta {
 }
 
 /** The props every renderer shares: data, controlled interaction state, search, limits, motion. */
-export interface GraphViewBaseProps {
+export interface GraphViewBaseProps extends GraphFullscreenProps {
   /** Plain JSON. A new object means a new graph; mutate nothing in place. */
   data: GraphData;
   /** Controlled selection (a node id or null). Omit to let the view own it. */

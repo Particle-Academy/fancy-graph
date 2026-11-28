@@ -23,8 +23,10 @@ npm install @particle-academy/fancy-graph
 npm install @particle-academy/fancy-3d-three @particle-academy/fancy-3d three
 ```
 
-The 2D view has no 3D dependency. The 3D view is built on fancy-3d-three: it is
-an optional peer (0.3.0 or later), loaded only by the
+The 2D view has no WebGL or three.js dependency; it takes one React-only piece
+of `@particle-academy/fancy-3d` (a peer, installed for you by npm 7+): its
+full-screen hook, so every view goes full screen the same way. The 3D view is
+built on fancy-3d-three: it is an optional peer (0.5.0 or later), loaded only by the
 `@particle-academy/fancy-graph/three` entry, and fancy-graph takes three.js only
 through it (`@particle-academy/fancy-3d-three/three`). fancy-graph declares no
 `three` dependency of its own; you install `three` because fancy-3d-three needs
@@ -190,6 +192,47 @@ entry, so it needs `@particle-academy/react-fancy` installed and its styles
 set up as for any react-fancy component. It is off unless you pass it. Any
 component taking `GraphControlsProps` works the same way, or leave `controls`
 off and drive the props yourself.
+
+## Full screen
+
+Every view has a full-screen button. The view's ROOT goes full screen, not the
+bare canvas, so the controls overlay, labels, the selection, keyboard and
+gamepad focus, the camera controls and the host's `overlay` all come along:
+
+```tsx
+<GraphView3D
+  data={data}
+  preset="cosmos"
+  controls={GraphViewControls}
+  overlay={<nav aria-label="Where you are">{/* breadcrumbs, a fact card */}</nav>}
+/>
+```
+
+- **Put what belongs to the view in `overlay`**, not beside it: breadcrumbs, a
+  fact card, a "fly to" select. It is drawn inside the root, passes pointer
+  events through to the canvas except on its children, and goes full screen with
+  the view. Something rendered next to the view stays behind on the page.
+- **The button:** the view draws one (bottom right) unless a `controls` overlay
+  is given, which carries it instead: `GraphViewControls` shows a
+  `[data-fancy-graph-control="fullscreen"]` button (`data-fancy-graph-toggle="fullscreen"`),
+  a custom one gets `fullscreen`, `fullscreenAvailable` and
+  `onFullscreenChange` in `GraphControlsProps`. `fullscreenButton` forces the
+  view's own button on (`true`) or off (`false`).
+- **Controlled:** `fullscreen` / `defaultFullscreen` / `onFullscreenChange(on, { source })`,
+  `fullscreenLabels`; the handle's `setFullscreen(on, { source })`;
+  `getState().fullscreen` and `fullscreenMode` (`"native"`, `"expanded"`, or
+  null); a `fullscreen` activity (`id` `"on"` / `"off"`).
+- **How:** fancy-3d's one implementation (`@particle-academy/fancy-3d/fullscreen`,
+  React only). The Fullscreen API where it is available, else a fixed,
+  full-viewport "expanded" mode (iPhone Safari, or a request made without a
+  user gesture, as an agent's is). Esc and the button exit; in expanded mode Esc
+  leaves full screen without also clearing the selection, as in native mode.
+  The canvas resizes and the camera follows. The canvas keeps keyboard focus.
+- **Popups:** react-fancy 6.32.0+ menus and listboxes opened from the overlay
+  stay visible in native full screen (they portal into the full-screen element).
+- `<GraphScene3D>` on your own fancy-3d-three `<Stage>` uses that Stage's full
+  screen (the Stage draws the button); `<GraphSceneOnStage>` on a bare stage
+  has none, and its controls show no button.
 
 **Styles.** Every class the overlay shows comes from react-fancy's dist (the
 overlay writes none of its own), so Tailwind v4 must scan react-fancy. In the

@@ -11,8 +11,10 @@ import { resolvePreset2D, type GraphPreset2D, type GraphPreset2DId } from "../pr
 import { applyThemeVars, resolveTheme, typeColorsFor } from "../theme";
 import { DEFAULT_LAYERS, mergeLayerSpecs, type GraphLayerSpec } from "../layers";
 import { controlsDataset, controlsHandle, controlsState, isAnimatedLayout, renderControls, type GraphControlsHandle, type GraphControlsState } from "./controls";
+import { FullscreenButton, FullscreenContext } from "@particle-academy/fancy-3d/fullscreen";
+import { OVERLAY_CSS, showsOwnButton, useGraphFullscreen, useOwnFullscreen, type GraphFullscreenHandle } from "./fullscreen";
 
-export interface GraphViewHandleBase extends GraphControlsHandle {
+export interface GraphViewHandleBase extends GraphControlsHandle, GraphFullscreenHandle {
   /** Select a node (or null), through the same controlled path a click takes. */
   select(id: string | null, opts?: { source?: GraphActivitySource }): void;
   /** Search results, the selection and counts, for agents and tooling. */
@@ -124,6 +126,11 @@ export function GraphView(props: GraphViewProps) {
   const engineRef = useRef<CanvasEngine | null>(null);
   const latest = useRef({ props, model, preset });
   latest.current = { props, model, preset };
+  // Full screen takes the root: canvas, labels, controls overlay and the host's overlay.
+  const own = useOwnFullscreen(rootRef, props);
+  const fs = useGraphFullscreen(own.controller, model, own.asked);
+  const fsRef = useRef(fs);
+  fsRef.current = fs;
 
   // The preset's layout, rebuilt only when its key changes (the radial view's centre).
   const presetState = { graph, selected: model.selectedId, focused: model.focusedId };
@@ -265,6 +272,7 @@ export function GraphView(props: GraphViewProps) {
       const index = (id: string) => m().graph.index.get(id) ?? -1;
       return {
         ...controlsHandle(m),
+        setFullscreen: (on, opts) => fsRef.current.set(on, opts?.source ?? "api"),
         neighbors: (id) => (m().graph.index.has(id) ? neighborLinks(m().graph, index(id)) : []),
         positionOf: (id) => e()?.positionOf(index(id)) ?? null,
         stepFocus(direction, opts) {
@@ -328,7 +336,7 @@ export function GraphView(props: GraphViewProps) {
             nodeCount: mm.graph.nodes.length,
             linkCount: mm.graph.links.length,
             dropped: { ...mm.graph.dropped },
-            ...controlsState(mm, animatedRef.current),
+            ...controlsState(mm, animatedRef.current, fsRef.current.state()),
           };
         },
         get root() {
@@ -342,6 +350,7 @@ export function GraphView(props: GraphViewProps) {
   const selectedLabel = model.selectedIndex >= 0 ? model.labelOf(model.selectedIndex) : "";
   const label = `${props["aria-label"] ?? "Graph"}: ${graph.nodes.length} nodes, ${graph.links.length} links`;
   return (
+    <FullscreenContext.Provider value={fs.controller}>
     <div
       ref={rootRef}
       className={props.className}
@@ -362,8 +371,16 @@ export function GraphView(props: GraphViewProps) {
       <div aria-live="polite" style={visuallyHidden} data-fancy-graph-announcer="">
         {selectedLabel ? `Selected ${selectedLabel}` : ""}
       </div>
-      {renderControls(props.controls, model, animated)}
+      {renderControls(props.controls, model, animated, fs.controls)}
+      {props.overlay != null && (
+        <div data-fancy-graph-overlay="" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+          <style>{OVERLAY_CSS}</style>
+          {props.overlay}
+        </div>
+      )}
+      {showsOwnButton(props) && <FullscreenButton controller={fs.controller} />}
     </div>
+    </FullscreenContext.Provider>
   );
 }
 

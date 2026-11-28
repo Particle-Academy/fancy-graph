@@ -70,6 +70,7 @@ export { DARK_THEME, LIGHT_THEME, applyThemeVars, cssVar, resolveTheme, assignTy
 export { GraphView, type GraphViewHandle, type GraphViewHandleBase, type GraphViewProps, type GraphViewState } from "./react/GraphView";
 export { useGraphModel, useReducedMotion, type ChangeMeta, type GraphModel, type GraphModelView, type GraphViewBaseProps } from "./react/model";
 export type { GraphControlsHandle, GraphControlsProps, GraphControlsState } from "./react/controls";
+export type { GraphControlsFullscreen, GraphFullscreenHandle, GraphFullscreenProps, GraphFullscreenState } from "./react/fullscreen";
 export type { ClusterSource } from "./render2d/engine";
 export {
   GRAPH_PRESETS_2D,

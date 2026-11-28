@@ -10,6 +10,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-28
+
+**Every view goes full screen, with its whole control UX inside.**
+
+**Consumer action:** none for most. Two things to know: (1) a full-screen
+button now shows in the bottom-right corner of a view with no `controls`
+overlay (`fullscreenButton={false}` hides it); (2) the package now has a
+required peer, `@particle-academy/fancy-3d >=0.7.0` (React only; npm 7+
+installs it), and the 3D peer moved to `@particle-academy/fancy-3d-three
+>=0.5.0`. To take breadcrumbs or a fact card into full screen, render them in
+the new `overlay` prop instead of beside the view.
+
+### Added
+
+- **Full screen on `<GraphView>`, `<GraphView3D>` and `<GraphScene3D>`.** The
+  view's ROOT goes full screen, not the bare canvas, so the controls overlay,
+  labels, selection, keyboard and gamepad focus, and camera controls keep
+  working inside it. The mechanism is fancy-3d's one implementation
+  (`@particle-academy/fancy-3d/fullscreen`): the Fullscreen API, else a fixed
+  full-viewport mode (iPhone Safari, or an agent's request without a user
+  gesture). Esc and the button exit; in the fallback Esc leaves full screen
+  without also clearing the selection, as the browser's native Esc does. The
+  canvas and camera follow the new size.
+- **`overlay`**: content drawn over the view, inside its root, so the host's
+  breadcrumbs, fact cards and selects go full screen with it. Pointer events
+  pass through to the canvas except on its children.
+- **The button.** The view draws its own (bottom right) when there is no
+  `controls` overlay; `GraphViewControls` carries one instead
+  (`[data-fancy-graph-control="fullscreen"]`, `data-fancy-graph-toggle="fullscreen"`,
+  labels `fullscreenEnter` / `fullscreenExit`). `fullscreenButton` forces the
+  view's own on or off.
+- **Controlled state, handle, state and activity:** `fullscreen`,
+  `defaultFullscreen`, `onFullscreenChange(on, { source })`,
+  `fullscreenLabels`; `setFullscreen(on, { source })` on every handle (false
+  where nothing owns full screen); `getState().fullscreen` and
+  `fullscreenMode`; a `fullscreen` activity (`id` `"on"` / `"off"`).
+  `GraphControlsProps` gains `fullscreen`, `fullscreenAvailable` and
+  `onFullscreenChange`, so a custom controls overlay can draw its own button.
+  New types: `GraphFullscreenProps`, `GraphControlsFullscreen`,
+  `GraphFullscreenHandle`, `GraphFullscreenState`.
+- `<GraphScene3D>` inside your own `<Stage>` uses that Stage's full screen;
+  `<GraphView3D>` owns it on its root, and its Stage defers.
+
+### Changed
+
+- **New required peer: `@particle-academy/fancy-3d` `>=0.7.0 <2.0`.** Only its
+  React-only `./fullscreen` subpath is used, by every entry that renders a view
+  (the headless `./core` and `./worker` do not). npm 7+ installs it.
+- **`@particle-academy/fancy-3d-three` peer `>=0.5.0 <2.0`** (was `>=0.3.0`):
+  the Stage that takes `overlay` and defers full screen to `GraphView3D`.
+- **`GraphControlsProps` has three more fields.** A controls component RECEIVES
+  them, so nothing to do there; only code that builds a `GraphControlsProps`
+  object by hand (a test) must add `fullscreen`, `fullscreenAvailable` and
+  `onFullscreenChange`.
+
 ### Fixed
 
 - **`GraphViewControls` keeps its toggle handles on react-fancy 6.31.0+.**

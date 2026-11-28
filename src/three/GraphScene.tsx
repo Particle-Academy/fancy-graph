@@ -4,6 +4,8 @@ import { useCallback, useImperativeHandle, useLayoutEffect, useMemo, useRef, use
 import { createPortal } from "react-dom";
 import { DEFAULT_LAYERS, mergeLayerSpecs, type GraphLayerSpec } from "../layers";
 import { controlsDataset, controlsHandle, controlsState, isAnimatedLayout, renderControls } from "../react/controls";
+import { FullscreenButton, FullscreenContext, useFullscreenContext } from "@particle-academy/fancy-3d/fullscreen";
+import { showsOwnButton, useGraphFullscreen, useOwnFullscreen } from "../react/fullscreen";
 import type { Camera3D } from "../camera";
 import type { GraphLayout } from "../layout/contract";
 import { applyThemeVars, resolveTheme, typeColorsFor } from "../theme";
@@ -96,6 +98,8 @@ export interface GraphScene3DProps extends GraphViewBaseProps {
   onSelectedConstellationChange?: (id: string | null, meta: ChangeMeta) => void;
   /** The selection's breadcrumbs, each time they change. */
   onBreadcrumbsChange?: (crumbs: GraphBreadcrumb[]) => void;
+  /** @internal GraphView3D's record of who asked for its last full-screen change. */
+  fullscreenAsked?: { current: GraphActivitySource | null };
 }
 
 export interface GraphSceneOnStageProps extends GraphScene3DProps {
@@ -128,6 +132,10 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
   const engineRef = useRef<StageEngine | null>(null);
   const latest = useRef({ props, model, preset });
   latest.current = { props, model, preset };
+  // Full screen is the nearest viewer's: GraphView3D's root, or the host's Stage.
+  const fs = useGraphFullscreen(useFullscreenContext(), model, props.fullscreenAsked);
+  const fsRef = useRef(fs);
+  fsRef.current = fs;
   const presetState = { graph, selected: model.selectedId, focused: model.focusedId };
   const layoutKey = preset.layoutKey ? preset.layoutKey(presetState) : "";
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -324,6 +332,7 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
       const index = (id: string) => m().graph.index.get(id) ?? -1;
       return {
         ...controlsHandle(m),
+        setFullscreen: (on, opts) => fsRef.current.set(on, opts?.source ?? "api"),
         neighbors: (id) => (m().graph.index.has(id) ? neighborLinks(m().graph, index(id)) : []),
         positionOf: (id) => e()?.positionOf(index(id)) ?? null,
         stepFocus(direction, opts) {
@@ -405,7 +414,7 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
             nodeCount: mm.graph.nodes.length,
             linkCount: mm.graph.links.length,
             dropped: { ...mm.graph.dropped },
-            ...controlsState(mm, animatedRef.current),
+            ...controlsState(mm, animatedRef.current, fsRef.current.state()),
           };
         },
         get root() {
@@ -417,7 +426,7 @@ export function GraphSceneOnStage(props: GraphSceneOnStageProps) {
   );
 
   // The controls overlay sits in the stage's overlay root, above the canvas: its clicks never reach the picker.
-  const controls = renderControls(props.controls, model, animated);
+  const controls = renderControls(props.controls, model, animated, fs.controls);
   return controls ? createPortal(controls, stage.overlayRoot) : null;
 }
 
@@ -455,13 +464,28 @@ export interface GraphView3DProps extends GraphScene3DProps {
  * `@particle-academy/fancy-3d-three` installed; the 2D `<GraphView>` needs
  * neither.
  */
-export function GraphView3D({ clearColor, className, style, ...props }: GraphView3DProps) {
+export function GraphView3D({ clearColor, className, style, overlay, ...props }: GraphView3DProps) {
+  // Full screen takes this root, so the Stage (canvas, labels, controls) and the overlay come along.
+  // The Stage inside sees this controller and defers to it.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const own = useOwnFullscreen(rootRef, props);
   // The scene writes the live counts and selection onto this element; see GraphSceneOnStage.
   return (
-    <div className={className} style={{ position: "relative", overflow: "hidden", ...style }} data-fancy-graph="" data-fancy-graph-renderer="3d">
-      <Stage bare cameraRadius={3000} cameraTarget={[0, 0, 0]} clearColor={clearColor ?? "#02030a"} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
-        <GraphScene3D applyThemeBackground={clearColor === undefined} {...props} />
+    <FullscreenContext.Provider value={own.controller}>
+    <div ref={rootRef} className={className} style={{ position: "relative", overflow: "hidden", ...style }} data-fancy-graph="" data-fancy-graph-renderer="3d">
+      <Stage
+        bare
+        cameraRadius={3000}
+        cameraTarget={[0, 0, 0]}
+        clearColor={clearColor ?? "#02030a"}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+        fullscreenButton={false}
+        overlay={overlay}
+      >
+        <GraphScene3D applyThemeBackground={clearColor === undefined} {...props} fullscreenAsked={own.asked} />
       </Stage>
+      {showsOwnButton(props) && <FullscreenButton controller={own.controller} />}
     </div>
+    </FullscreenContext.Provider>
   );
 }

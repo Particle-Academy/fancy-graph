@@ -146,9 +146,10 @@ export interface GraphActivity {
    * `"layer"`: a layer was switched (`id` is the layer's id). `"links"`: the
    * link visibility mode changed (`id` is the mode). `"motion"`: animation was
    * paused or resumed (`id` is `"paused"` or `"running"`). `"constellation"`:
-   * a constellation was selected (`id`) or cleared (`null`).
+   * a constellation was selected (`id`) or cleared (`null`). `"fullscreen"`:
+   * the view entered (`id` `"on"`) or left (`"off"`) full screen.
    */
-  type: "select" | "hover" | "focus" | "camera" | "search" | "layer" | "links" | "motion" | "constellation";
+  type: "select" | "hover" | "focus" | "camera" | "search" | "layer" | "links" | "motion" | "constellation" | "fullscreen";
   id?: string | null;
   source: GraphActivitySource;
   at: number;

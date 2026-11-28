@@ -2,6 +2,7 @@ import { createElement, type ComponentType, type ReactElement } from "react";
 import type { GraphLayerState, GraphLayerVisibility, LinkVisibility } from "../layers";
 import type { GraphActivitySource } from "../types";
 import type { GraphModel } from "./model";
+import type { GraphControlsFullscreen, GraphFullscreenState } from "./fullscreen";
 
 /**
  * What a view-controls component gets from `<GraphView controls={...}>` /
@@ -10,7 +11,7 @@ import type { GraphModel } from "./model";
  * `GraphViewControls` in `@particle-academy/fancy-graph/controls` is one;
  * write your own to the same shape.
  */
-export interface GraphControlsProps {
+export interface GraphControlsProps extends GraphControlsFullscreen {
   selected: string | null;
   /** The selected node's label (as text), or null. */
   selectedLabel: string | null;
@@ -40,7 +41,7 @@ export interface GraphControlsHandle {
 }
 
 /** The view state these controls add to `getState()`. */
-export interface GraphControlsState {
+export interface GraphControlsState extends GraphFullscreenState {
   layers: GraphLayerVisibility;
   linkVisibility: LinkVisibility;
   paused: boolean;
@@ -57,8 +58,8 @@ export function controlsHandle(m: () => GraphModel): GraphControlsHandle {
   };
 }
 
-export function controlsState(m: GraphModel, animated: boolean): GraphControlsState {
-  return { layers: { ...m.layers }, linkVisibility: m.linkVisibility, paused: m.paused, animated };
+export function controlsState(m: GraphModel, animated: boolean, fullscreen: GraphFullscreenState): GraphControlsState {
+  return { layers: { ...m.layers }, linkVisibility: m.linkVisibility, paused: m.paused, animated, ...fullscreen };
 }
 
 /** Stable handles for the root element: visible layer ids, the link mode, paused. */
@@ -71,7 +72,7 @@ export function controlsDataset(m: GraphModel): Record<string, string> {
 }
 
 /** Renders the host's controls component, wrapped so only the controls themselves take pointer events. */
-export function renderControls(Controls: ComponentType<GraphControlsProps> | null | false | undefined, m: GraphModel, animated: boolean): ReactElement | null {
+export function renderControls(Controls: ComponentType<GraphControlsProps> | null | false | undefined, m: GraphModel, animated: boolean, fullscreen: GraphControlsFullscreen): ReactElement | null {
   if (!Controls) return null;
   const props: GraphControlsProps = {
     selected: m.selectedId,
@@ -84,6 +85,7 @@ export function renderControls(Controls: ComponentType<GraphControlsProps> | nul
     animated,
     paused: m.paused,
     onPausedChange: (paused) => m.setPaused(paused, { source: "user" }),
+    ...fullscreen,
   };
   return createElement(
     "div",

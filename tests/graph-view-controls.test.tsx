@@ -39,6 +39,9 @@ const base = (over: Partial<GraphControlsProps> = {}): GraphControlsProps => ({
   animated: false,
   paused: false,
   onPausedChange: vi.fn(),
+  fullscreen: false,
+  fullscreenAvailable: false,
+  onFullscreenChange: vi.fn(),
   ...over,
 });
 const q = (sel: string) => container.querySelector(sel) as HTMLElement | null;

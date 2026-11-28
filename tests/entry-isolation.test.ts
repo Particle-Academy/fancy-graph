@@ -21,6 +21,7 @@ declare global {
 const SOURCES = import.meta.glob("../src/**/*.{ts,tsx}", { query: "?raw", import: "default", eager: true });
 // Everything else that ships in the repo: tests, the cosmos example and the bench harness.
 const OTHERS = import.meta.glob(["../tests/**/*.{ts,tsx}", "../examples/**/*.ts", "../bench/**/*.{ts,tsx,mjs}"], { query: "?raw", import: "default", eager: true });
+const FULLSCREEN = "@particle-academy/fancy-3d/fullscreen";
 const IMPORT = /(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g;
 
 function normalize(path: string): string {
@@ -65,8 +66,17 @@ describe("entry isolation", () => {
   it.each(["src/index.ts", "src/core.ts", "src/worker.ts"])("%s pulls in neither three nor fancy-3d-three", (entry) => {
     const { files, bare } = reachable(entry);
     expect(files.size).toBeGreaterThan(1);
-    const offenders = [...bare].filter((s) => s === "three" || s.startsWith("three/") || s.startsWith("@particle-academy/fancy-3d"));
+    // The one exception: fancy-3d's full-screen hook, which is React only (no
+    // WebGL, no engine), so a 2D view goes full screen the way every 3D one does.
+    const offenders = [...bare].filter((s) => s !== FULLSCREEN && (s === "three" || s.startsWith("three/") || s.startsWith("@particle-academy/fancy-3d")));
     expect(offenders).toEqual([]);
+  });
+
+  it("the 2D entry reaches fancy-3d only through its React-only full-screen subpath, a required peer", () => {
+    expect([...reachable("src/index.ts").bare]).toContain(FULLSCREEN);
+    const p = pkg as { peerDependencies?: Record<string, string>; peerDependenciesMeta: Record<string, { optional?: boolean }> };
+    expect(p.peerDependencies?.["@particle-academy/fancy-3d"]).toMatch(/^>=0\.7\.0/);
+    expect(p.peerDependenciesMeta["@particle-academy/fancy-3d"]?.optional).not.toBe(true);
   });
 
   it.each(["src/core.ts", "src/worker.ts"])("%s is headless: no React either", (entry) => {
@@ -116,7 +126,8 @@ describe("entry isolation", () => {
     expect(p.dependencies ?? {}).toEqual({});
     for (const field of [p.devDependencies, p.peerDependencies, p.optionalDependencies]) expect(Object.keys(field ?? {})).not.toContain("three");
     expect(Object.keys(p.peerDependenciesMeta)).not.toContain("three");
-    expect(p.peerDependencies?.["@particle-academy/fancy-3d-three"]).toMatch(/^>=0\.3\.0/);
+    // 0.5.0: the Stage takes `overlay` and defers full screen to GraphView3D's root.
+    expect(p.peerDependencies?.["@particle-academy/fancy-3d-three"]).toMatch(/^>=0\.5\.0/);
     expect(p.peerDependenciesMeta["@particle-academy/fancy-3d-three"].optional).toBe(true);
   });
 });
