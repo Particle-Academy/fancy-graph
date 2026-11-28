@@ -189,7 +189,7 @@ const controlsOk =
   cosmosControls.afterReclick === "" &&
   cosmosControls.afterClick === "agent-0" &&
   cosmosControls.afterClear === "" &&
-  cosmosControls.layers === "background clusters links labels" &&
+  cosmosControls.layers === "background clusters cores links labels" &&
   cosmosControls.linkVisibility === "all";
 
 // A preset switched in place on a mounted view, every ordered pair, 2D and 3D (0.2.2: 3D into the cosmos threw).

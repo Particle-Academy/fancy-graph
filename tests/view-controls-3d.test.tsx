@@ -174,6 +174,7 @@ describe("layer visibility (3D)", () => {
     expect(ref.current!.getLayers().map((l) => [l.id, l.visible])).toEqual([
       ["background", true],
       ["clusters", true],
+      ["cores", true],
       ["orbits", false],
       ["links", true],
       ["labels", true],
@@ -184,22 +185,25 @@ describe("layer visibility (3D)", () => {
       ref.current!.setLayer("orbits", true);
     });
     expect(ref.current!.getState().layers.orbits).toBe(true);
-    expect(wrap.dataset.fancyGraphLayers).toBe("background clusters orbits links labels");
+    expect(wrap.dataset.fancyGraphLayers).toBe("background clusters cores orbits links labels");
     expect(wrap.dataset.fancyGraphLinkVisibility).toBe("focus");
     wrap.remove();
   });
 });
 
 describe("cosmos orbit paths", () => {
-  it("draws one closed ring per orbiter around its star, in the layer tagged `orbits`", () => {
+  it("draws one closed ring per orbiter around its star, in the layer tagged `orbits`, one set per galaxy", () => {
     const { nodes, links } = cosmosData(120, 160, 3);
     const s = mount({ data: { nodes, links }, preset: "cosmos", layout: undefined, layers: { orbits: true } });
     act(() => s.frame());
-    const lines = s.scene.getObjectsByProperty("name", "cosmos-orbits");
-    expect(lines).toHaveLength(1);
-    const seg = lines[0] as THREE.LineSegments;
-    expect(seg.parent!.visible).toBe(true);
-    expect((seg.geometry.getAttribute("position") as THREE.BufferAttribute).count).toBeGreaterThan(0);
+    const lines = s.scene.getObjectsByProperty("name", "cosmos-orbits") as THREE.LineSegments[];
+    const galaxies = s.ref.current!.getClusters();
+    expect(lines).toHaveLength(galaxies.length);
+    const orbiters = s.ref.current!.getClusters().reduce((k, c) => k + c.members.length, 0) - galaxies.length;
+    const verts = lines.reduce((k, l) => k + l.geometry.drawRange.count, 0);
+    expect(verts).toBeGreaterThan(0);
+    expect(verts).toBeLessThanOrEqual(orbiters * 48 * 2);
+    for (const l of lines) expect(l.parent!.visible).toBe(true);
   });
 
   it("is hidden by default, and a factory exists for custom cosmos looks", () => {

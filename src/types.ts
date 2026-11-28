@@ -20,7 +20,31 @@ export interface GraphNode {
   y?: number;
   z?: number;
   fixed?: boolean;
+  /** Where this node sits in the 3D `cosmos` preset. Optional; other views ignore it. */
+  cosmos?: GraphCosmosPlacement;
   data?: Record<string, unknown>;
+}
+
+/**
+ * Optional placement for the `cosmos` 3D preset, as plain JSON. Absent, the
+ * procedural layout decides. A bad value (not finite numbers, the wrong
+ * length, past `limits.maxPlacement`) is ignored with one dev-mode warning and
+ * listed in the layout's `meta.placementIssues`; it never throws.
+ */
+export interface GraphCosmosPlacement {
+  /**
+   * Where this node's galaxy core sits, `[x, y, z]` in world units (the graph
+   * centre is the origin). A pinned galaxy stays there instead of orbiting the
+   * centre. Set it on any member; if members disagree, the first valid one in
+   * id order wins and the rest are reported.
+   */
+  galaxy?: [number, number, number];
+  /**
+   * Where this node sits relative to its galaxy core, in the galaxy's disc:
+   * `[x, y]` in the disc plane or `[x, y, z]` with z out of it, world units.
+   * The node turns with its galaxy and no longer orbits a star.
+   */
+  offset?: [number, number] | [number, number, number];
 }
 
 export interface GraphLink {

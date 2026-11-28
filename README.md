@@ -77,7 +77,7 @@ labels and neighbourhood mode.
 | **`network`** (2D, the default): a force-directed network.<br>![2D network](docs/presets/2d-network.png) | **`radial`** (2D): an ego view centred on the focused node, else the selection, re-centred as it moves.<br>![2D radial](docs/presets/2d-radial.png) |
 | **`hierarchy`** (2D): a layered tree for directed links, roots on top.<br>![2D hierarchy](docs/presets/2d-hierarchy.png) | **`clustered`** (2D): a map grouped by node type, a labelled hull per type.<br>![2D clustered](docs/presets/2d-clustered.png) |
 | **`network`** (3D, the default): lit spheres and lines.<br>![3D network](docs/presets/3d-network.png) | **`layered`** (3D): a plane per node type, or per bucket of a date or number field.<br>![3D layered](docs/presets/3d-layered.png) |
-| **`cosmos`** (3D): galaxies per type, stars, orbiting planets, asteroids. The reference example of how far the plug points go.<br>![3D cosmos](docs/presets/3d-cosmos.png) | |
+| **`cosmos`** (3D): a galaxy per type, each with a bright core and a shape drawn from its data; stars, orbiting planets, asteroids, and galaxies that turn and orbit the centre. The reference example of how far the plug points go.<br>![3D cosmos](docs/presets/3d-cosmos.png) | |
 
 ### Selection, layers and the view controls
 
@@ -90,7 +90,7 @@ on and off through a controlled JSON prop:
 | 2D `network`, `radial`, `hierarchy`; 3D `network` | `links`, `labels` |
 | 2D `clustered` | `links`, `labels`, `clusters` |
 | 3D `layered` | `links`, `labels`, `clusters` (the planes) |
-| 3D `cosmos` | `background` (sky), `clusters` (galaxies), `orbits` (orbit paths: off), `links`, `labels` |
+| 3D `cosmos` | `background` (sky), `clusters` (galaxies), `cores` (galactic cores), `orbits` (orbit paths: off), `links`, `labels` |
 
 ```tsx
 const [layers, setLayers] = useState({ orbits: true });
@@ -202,8 +202,19 @@ Built in, all written for this package: `forceLayout()` (Barnes-Hut, 2D or 3D,
 screen coordinates and each node's state. 3D: layers. `createInstancedLayer`
 takes your own GLSL 3 shaders and gives you instancing, additive or
 premultiplied blending, back-to-front order and fresh positions every frame.
-The `cosmos` preset (galaxies, stars, planets with rings, asteroids, a sky,
-dust) is built with nothing else; `src/three/presets/` is the worked example.
+The `cosmos` preset (galaxies with cores, stars, planets with rings,
+asteroids, a sky, dust) is built with nothing else; `src/three/presets/` is the
+worked example.
+
+Its galaxies are procedural but deterministic: each one's arms, twist, size,
+tilt, bulge and warmth come from its type id and how its members link, so the
+same graph always looks the same. Planets orbit stars, systems turn about their
+galaxy's core and galaxies orbit the centre, all frozen by `paused` and reduced
+motion. A node can pin its place with an optional JSON field:
+`cosmos: { galaxy: [x, y, z] }` puts its galaxy's core there (and stops it
+orbiting), `cosmos: { offset: [x, y] }` puts the node there relative to its
+galaxy's core, in the disc. Bad values are ignored with a dev warning, never
+thrown; see [AGENTS.md](./AGENTS.md#the-cosmos).
 
 ### What the kit owns
 

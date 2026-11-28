@@ -506,7 +506,9 @@ export class StageEngine {
     const dt = Math.min(MAX_DT, Math.max(MIN_DT, dtIn ?? (this.last ? (now - this.last) / 1000 : 1 / 60)));
     this.last = now;
     if (r.tick(dt) && (r.animated || !r.settled)) {
-      if (this.opts.clusters === "group" || typeof this.opts.clusters === "function") this.clusterCache = this.resolveClusters();
+      // Computed clusters follow the nodes; a layout's own clusters follow it while it animates (the cosmos's galaxies orbit).
+      const src = this.opts.clusters;
+      if (src === "group" || typeof src === "function" || (src === undefined && r.animated)) this.clusterCache = this.resolveClusters();
     }
     if (!r.animated && !r.settled) this.measure();
     const p = r.positions;

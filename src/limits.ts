@@ -37,6 +37,12 @@ export interface GraphLimits {
   /** 3D camera distance range, as multiples of the graph's extent. */
   maxDistanceFactor: number;
   minDistance: number;
+  /**
+   * Largest absolute coordinate a placement taken from data may ask for (the
+   * cosmos's `node.cosmos.galaxy` / `offset`, in world units). A bigger value
+   * is ignored and reported, never clamped.
+   */
+  maxPlacement: number;
 }
 
 export const DEFAULT_LIMITS: Readonly<GraphLimits> = Object.freeze({
@@ -56,6 +62,7 @@ export const DEFAULT_LIMITS: Readonly<GraphLimits> = Object.freeze({
   fitMaxZoom: 2,
   maxDistanceFactor: 4,
   minDistance: 2,
+  maxPlacement: 100000,
 });
 
 /** Overrides merged onto the defaults. A non-finite or non-positive override is ignored, never "unlimited". */

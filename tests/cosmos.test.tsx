@@ -45,9 +45,10 @@ describe("cosmosLayout through the layout contract", () => {
     r.tick(2);
     let moved = 0;
     m.bodies.forEach((b, i) => {
-      if (b.parent < 0) return;
-      const p = m.bodies[b.parent].home;
-      const d = Math.hypot(r.positions[i * 3] - p[0], r.positions[i * 3 + 1] - p[1], r.positions[i * 3 + 2] - p[2]);
+      if (b.parent < 0 || b.pinned) return;
+      // Stars move too (they turn about their galaxy's core), so measure from the star's live position.
+      const s = b.parent * 3;
+      const d = Math.hypot(r.positions[i * 3] - r.positions[s], r.positions[i * 3 + 1] - r.positions[s + 1], r.positions[i * 3 + 2] - r.positions[s + 2]);
       expect(d).toBeCloseTo(b.orbitRadius, 1);
       if (Math.abs(r.positions[i * 3] - before[i * 3]) > 1e-3) moved++;
     });
@@ -126,6 +127,47 @@ describe("the cosmos look through pluggable 3D layers", () => {
     expect((discs.geometry as THREE.InstancedBufferGeometry).instanceCount).toBe(new Set(nodes.map((n) => n.group)).size);
     expect(sky).toBeInstanceOf(THREE.Points);
     expect(sky.renderOrder).toBeLessThan(bodies.renderOrder);
+  });
+
+  it("draws one galactic core per galaxy, in its own `cores` layer, on its galaxy's live centre", () => {
+    const s = fakeStage();
+    const { nodes, links } = cosmosData(300, 420, 1);
+    const ref = createRef<GraphScene3DHandle>();
+    act(() => root.render(<GraphSceneOnStage ref={ref} stage={s.stage} data={{ nodes, links }} preset="cosmos" />));
+    act(() => s.frame());
+    const cores = s.scene.getObjectsByProperty("name", "cosmos-cores")[0] as THREE.Mesh;
+    expect(cores).toBeDefined();
+    const geo = cores.geometry as THREE.InstancedBufferGeometry;
+    const galaxies = ref.current!.getClusters();
+    expect(geo.instanceCount).toBe(galaxies.length);
+    const centre = geo.getAttribute("iCenter") as THREE.InterleavedBufferAttribute;
+    expect([centre.getX(0), centre.getY(0), centre.getZ(0)].map((x) => +x.toFixed(1))).toEqual(galaxies[0].center.map((x) => +x.toFixed(1)));
+    act(() => {
+      ref.current!.setLayer("cores", false);
+      s.frame();
+    });
+    expect(cores.parent!.visible).toBe(false);
+    expect(s.scene.getObjectsByProperty("name", "cosmos-galaxies")[0].parent!.visible).toBe(true);
+  });
+
+  it("moves each galaxy's dust with it, and the cluster centres the labels read", () => {
+    const s = fakeStage();
+    const { nodes, links } = cosmosData(300, 420, 1);
+    const ref = createRef<GraphScene3DHandle>();
+    act(() => root.render(<GraphSceneOnStage ref={ref} stage={s.stage} data={{ nodes, links }} preset="cosmos" />));
+    act(() => s.frame());
+    const centres = () => ref.current!.getClusters().map((c) => [...c.center]);
+    const before = centres();
+    // Animated time runs forward a capped dt per frame.
+    for (let k = 0; k < 300; k++) act(() => s.frame());
+    const after = centres();
+    expect(after.some((c, i) => Math.hypot(c[0] - before[i][0], c[1] - before[i][1], c[2] - before[i][2]) > 1e-3)).toBe(true);
+    const dust = s.scene.getObjectsByProperty("name", "cosmos-dust");
+    expect(dust).toHaveLength(after.length);
+    dust.forEach((d, i) => {
+      const e = d.matrix.elements;
+      expect(Math.hypot(e[12] - after[i][0], e[13] - after[i][1], e[14] - after[i][2])).toBeLessThan(1e-2);
+    });
   });
 
   it("flies to a galaxy, selects and follows a world, and labels galaxies", () => {

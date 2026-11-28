@@ -10,6 +10,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-27
+
+**Consumer action: none.** The `cosmos` preset looks different (cores,
+per-graph galaxy shapes, galaxies that move); nothing you pass needs to change.
+Two things to know: if you show the cosmos's layer list, it gains a `cores`
+entry; and if you read `CosmosBody.home` as a live position, read the layout's
+positions instead, because stars now move.
+
+### Added
+
+- **A galactic core in every cosmos galaxy**: a bright, smooth central bulge,
+  tinted by the galaxy's warmth and flattened into its disc, distinct from the
+  stars (no star sits inside it). It is its own layer, `cores` (visible by
+  default), drawn by the new `cores` slot in `cosmosRenderers()`; tune it with
+  `cosmosPreset({ cores: { brightness, minPx } })`.
+- **Procedural, deterministic galaxies.** Each galaxy's arm count (2 to 6),
+  twist, size, tilt, bulge size, warmth and arm spread are derived from its type
+  id and its members: how many there are, how many links they share inside the
+  galaxy and out of it. The same data gives the same universe, whatever the
+  input order; a different graph gets different-looking galaxies. The shape is
+  on each galaxy cluster's `data` (`arms`, `twist`, `coreRadius`, `warmth`,
+  `pinned`) and on `CosmosGalaxy`.
+- **A motion hierarchy.** Planets and asteroids orbit their stars as before;
+  every system now turns about its galaxy's core, and galaxies orbit the graph
+  centre (the origin), each at a fixed distance. `paused` and reduced motion
+  freeze every level. Speeds: `cosmosLayout` / `cosmosPreset` options
+  `galaxyOrbitSpeed` (radians per second, default 0.004) and `spinSpeed` (a
+  galaxy's rim speed, world units per second, default 6); 0 stops that level.
+- **Optional placement from data: `node.cosmos`** (`GraphCosmosPlacement`),
+  plain JSON. `cosmos.galaxy: [x, y, z]` pins the node's galaxy core in world
+  space (it then stays put instead of orbiting); `cosmos.offset: [x, y]` or
+  `[x, y, z]` pins the node relative to its galaxy's core, in the disc's plane
+  (it turns with the galaxy and orbits no star). Absent, the procedural layout
+  decides. Members disagreeing on `galaxy`: the first in id order wins.
+- **`GraphLimits.maxPlacement`** (default 100000): the largest absolute
+  coordinate a `cosmos` placement may ask for, configurable through `limits`.
+- `cosmosDust()`, `galaxyLocal()` and the `CosmosCoreOptions` /
+  `CosmosPlacementIssue` types are exported from `/three`.
+
+### Changed
+
+- **Bad `cosmos` values are ignored loudly, never thrown**: one `console.warn`
+  per layout in development listing them, and `meta.placementIssues` on the
+  cosmos layout either way.
+- **Layout-supplied clusters follow an animated layout.** The 3D view now
+  refreshes a layout's own clusters every frame while it animates (it already
+  did for `clusters="group"` and functions), so galaxy labels and
+  `getClusters()` track galaxies as they orbit.
+- **Galaxy dust and orbit rings are built once per galaxy in its own frame**
+  and carried by a model matrix, so moving galaxies cost nothing per point.
+  `cosmosOrbits()` now draws one line set per galaxy.
+- Stars sit on the arms clear of the core, including a galaxy's only star,
+  which used to sit at its centre. The disc's spiral now matches the one stars
+  and dust sit on (it used a fixed twist), and its arms melt into the bulge
+  instead of pinching to a point at the centre.
+- `CosmosBody` gains `pinned`; its `home`, `orbitU` and `orbitV` are now the
+  galaxy's rest frame (time 0). `CosmosGalaxy`'s `center`, `u` and `v` are live
+  and change in place every step; `restCenter`, `restU`, `restV` hold time 0.
+
 ## [0.2.3] - 2026-11-27
 
 **Consumer action: none.** A `limits={{ maxZoom }}` you lowered to stop a small

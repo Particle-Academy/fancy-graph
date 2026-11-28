@@ -7,7 +7,7 @@
 // The core is re-exported module by module (not `export * from "./core"`), so the
 // bundler does not emit an empty shared chunk for core.ts. tests/entry-isolation.test.ts
 // holds the two lists equal.
-export type { GraphActivity, GraphActivitySource, GraphCluster, GraphData, GraphLink, GraphNode, IndexedGraph, IndexedLink, Vec3 } from "./types";
+export type { GraphActivity, GraphActivitySource, GraphCluster, GraphCosmosPlacement, GraphData, GraphLink, GraphNode, IndexedGraph, IndexedLink, Vec3 } from "./types";
 export { DEFAULT_LIMITS, resolveLimits, truncateLabel, type GraphLimits } from "./limits";
 export { normalizeGraph } from "./graph";
 export { DEFAULT_LAYERS, effectiveLinkVisibility, isLayerVisible, layerMap, mergeLayerSpecs, resolveLayers, type GraphLayerSpec, type GraphLayerState, type GraphLayerVisibility, type LinkVisibility } from "./layers";

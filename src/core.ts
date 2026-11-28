@@ -2,7 +2,7 @@
  * The headless core: no React, no three. Safe in a Worker, in Node, and in any
  * renderer an app writes for itself.
  */
-export type { GraphActivity, GraphActivitySource, GraphCluster, GraphData, GraphLink, GraphNode, IndexedGraph, IndexedLink, Vec3 } from "./types";
+export type { GraphActivity, GraphActivitySource, GraphCluster, GraphCosmosPlacement, GraphData, GraphLink, GraphNode, IndexedGraph, IndexedLink, Vec3 } from "./types";
 export { DEFAULT_LIMITS, resolveLimits, truncateLabel, type GraphLimits } from "./limits";
 export { normalizeGraph } from "./graph";
 export { DEFAULT_LAYERS, effectiveLinkVisibility, isLayerVisible, layerMap, mergeLayerSpecs, resolveLayers, type GraphLayerSpec, type GraphLayerState, type GraphLayerVisibility, type LinkVisibility } from "./layers";

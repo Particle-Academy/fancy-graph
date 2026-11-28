@@ -82,6 +82,29 @@ Screenshots: [README, Views](./README.md#views-ready-made-presets).
 - 3D preset renderers are factories (layers own GPU state); a custom 3D preset
   must return fresh layers from `renderers()`.
 
+### The cosmos
+
+Each node type is a galaxy with a bright core. Its shape (arm count, twist,
+size, tilt, bulge, warmth, arm spread) comes from the type id and its members'
+count and links, deterministically: the same data is the same universe, other
+data looks different. Planets and asteroids orbit their stars, systems turn
+about their galaxy's core, galaxies orbit the graph centre (the origin);
+`paused` and reduced motion freeze all of it. Speeds:
+`cosmosPreset({ galaxyOrbitSpeed, spinSpeed })` (0 stops a level).
+
+Pin placement with an optional `cosmos` field on a node, plain JSON:
+
+```ts
+{ id: "acme", group: "organization", cosmos: { galaxy: [1200, 0, -300] } } // this galaxy's core, world units; it stops orbiting
+{ id: "ceo", group: "person", cosmos: { offset: [40, -25] } }              // relative to its galaxy's core, in the disc ([x, y] or [x, y, z])
+```
+
+Absent, the layout decides. A bad value (not finite numbers, wrong length, past
+`limits.maxPlacement`, default 100000) is ignored, warned once in dev, and listed
+in the layout's `meta.placementIssues`; it never throws. Members disagreeing on
+`galaxy`: the first in id order wins. Galaxy clusters carry their shape in
+`cluster.data` (`arms`, `twist`, `coreRadius`, `warmth`, `pinned`).
+
 ## Theme
 
 `theme="light" | "dark" | "auto"` (default auto: `.dark` / `[data-theme=dark]`
@@ -119,8 +142,8 @@ carries `data-fancy-graph-preset` and `data-fancy-graph-theme`.
 - **Layers, controlled JSON:** `layers` / `defaultLayers` / `onLayersChange`
   over the preset's declared layers (`getLayers()` lists them, with labels and
   state). In: a partial map, `{ orbits: true, labels: false }`; out: the full
-  map. Built-in ids: `links`, `labels`, `clusters`, `background`, `orbits`
-  (cosmos only, off by default). A preset declares them in `layers:
+  map. Built-in ids: `links`, `labels`, `clusters`, `background`, `cores` and
+  `orbits` (cosmos only; orbits off by default). A preset declares them in `layers:
   GraphLayerSpec[]`; a custom 3D layer joins one with `layer: "<id>"`, else it
   belongs to its slot. `links: false` hides links whatever the mode.
 - **Link mode and motion are controllable too:** `linkVisibility` /
