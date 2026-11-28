@@ -71,11 +71,11 @@ describe("<GraphViewControls>", () => {
   it("each layer is a react-fancy Switch that asks through onLayerChange", () => {
     const p = base();
     act(() => root.render(<GraphViewControls {...p} defaultOpen />));
-    const orbits = q('[data-fancy-graph-layer="orbits"] [role="switch"]')!;
+    const orbits = q('[data-fancy-graph-toggle="layer:orbits"]')!;
     expect(orbits.getAttribute("aria-checked")).toBe("false");
     press(orbits);
     expect(p.onLayerChange).toHaveBeenCalledWith("orbits", true);
-    press(q('[data-fancy-graph-layer="links"] [role="switch"]')!);
+    press(q('[data-fancy-graph-toggle="layer:links"]')!);
     expect(p.onLayerChange).toHaveBeenCalledWith("links", false);
   });
 
@@ -97,7 +97,7 @@ describe("<GraphViewControls>", () => {
     expect(q('[data-fancy-graph-control="motion"]')).toBeNull();
     const p = base({ animated: true });
     act(() => root.render(<GraphViewControls {...p} defaultOpen />));
-    const sw = q('[data-fancy-graph-control="motion"] [role="switch"]')!;
+    const sw = q('[data-fancy-graph-toggle="motion"]')!;
     expect(sw.getAttribute("aria-checked")).toBe("true");
     press(sw);
     expect(p.onPausedChange).toHaveBeenCalledWith(true);
@@ -145,9 +145,11 @@ describe("<GraphViewControls>", () => {
     expect(q('[data-fancy-graph-toggle="layer:links"]')!.className).toContain("bg-brand");
     expect(q('[data-fancy-graph-control="panel"]')!.className).toContain("bg-brand");
 
+    // react-fancy's default: plain blue before 6.31.0, blue through the kit's
+    // --fancy-accent variable from 6.31.0. Either is "react-fancy's default".
     act(() => root.render(<GraphViewControls {...p} defaultOpen />));
-    expect(q('[data-fancy-graph-toggle="layer:links"]')!.className).toContain("bg-blue-500");
-    expect(q('[data-fancy-graph-control="panel"]')!.className).toContain("bg-blue-600");
+    expect(q('[data-fancy-graph-toggle="layer:links"]')!.className).toMatch(/bg-blue-500|var\(--color-blue-500\)/);
+    expect(q('[data-fancy-graph-control="panel"]')!.className).toMatch(/bg-blue-600|var\(--color-blue-600\)/);
   });
 
   it("an unopened panel button stays react-fancy's plain button whatever the accent", () => {
@@ -171,7 +173,7 @@ describe("<GraphViewControls>", () => {
     press(q('[data-fancy-graph-control="clear-selection"]')!);
     expect(graph.dataset.fancyGraphSelected).toBe("");
     press(q('[data-fancy-graph-control="panel"]')!);
-    press(q('[data-fancy-graph-layer="labels"] [role="switch"]')!);
+    press(q('[data-fancy-graph-toggle="layer:labels"]')!);
     expect(graph.dataset.fancyGraphLayers).toBe("links");
   });
 });

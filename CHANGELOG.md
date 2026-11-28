@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`GraphViewControls` keeps its toggle handles on react-fancy 6.31.0+.**
+  react-fancy 6.31.0 moved a `Switch`'s `data-*` from a wrapper onto the
+  `role="switch"` button itself, and the overlay looked for the button inside
+  the wrapper, so on 6.31.0+ no layer or motion switch carried
+  `data-fancy-graph-toggle` and an agent addressing `layer:<id>` or `motion`
+  found nothing. It now accepts either placement. **Nothing to do.**
+
 ## [0.4.1] - 2026-11-28
 
 **The cosmos is galactic out of the box again.** With 0.4.0's default lens a

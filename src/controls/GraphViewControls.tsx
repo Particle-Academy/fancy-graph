@@ -78,16 +78,18 @@ export function GraphViewControls(props: GraphViewControlsProps) {
   const links = props.layers.find((l) => l.id === "links");
   const linksOn = !!links?.visible && props.linkVisibility !== "none";
 
-  // react-fancy's Switch puts data-* on its wrapper, not on the role="switch"
-  // button, and MultiSwitch options take no attributes at all. So the handles
-  // that name the clickable element itself are set here, after every commit.
+  // The handles that name the clickable element itself are set here, after
+  // every commit. Before react-fancy 6.31.0 a Switch put its data-* on a
+  // wrapper around the role="switch" button; from 6.31.0 they are on the button
+  // itself. Accept either, so the handles exist on every supported react-fancy.
   useLayoutEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
+    const switchOf = (el: HTMLElement | null) => (el?.matches('[role="switch"]') ? el : (el?.querySelector<HTMLElement>('[role="switch"]') ?? null));
     for (const wrapper of panel.querySelectorAll<HTMLElement>("[data-fancy-graph-layer]")) {
-      wrapper.querySelector('[role="switch"]')?.setAttribute("data-fancy-graph-toggle", `layer:${wrapper.dataset.fancyGraphLayer ?? ""}`);
+      switchOf(wrapper)?.setAttribute("data-fancy-graph-toggle", `layer:${wrapper.dataset.fancyGraphLayer ?? ""}`);
     }
-    panel.querySelector('[data-fancy-graph-control="motion"] [role="switch"]')?.setAttribute("data-fancy-graph-toggle", "motion");
+    switchOf(panel.querySelector<HTMLElement>('[data-fancy-graph-control="motion"]'))?.setAttribute("data-fancy-graph-toggle", "motion");
     const modes = panel.querySelectorAll('[data-fancy-graph-control="link-visibility"] [role="radio"]');
     LINK_MODES.forEach((mode, i) => modes[i]?.setAttribute("data-fancy-graph-toggle", `link-mode:${mode}`));
   });
