@@ -995,23 +995,85 @@ precision mediump float; in vec4 vColor; out vec4 o; void main(){ o = vec4(vColo
 export interface CosmosOrbitOptions {
   /** Line segments per orbit ring. Default 64. */
   segments?: number;
-  /** Ring opacity: normal, highlighted (the selection's, its neighbours'), dimmed. */
+  /** Ring opacity: normal, highlighted (the selection's, its neighbours'), dimmed. Default 0.07, 0.3, 0.02. */
   alpha?: { normal?: number; active?: number; dimmed?: number };
+  /**
+   * Systems whose rings are drawn besides the selected, focused and hovered
+   * one: this many nearest the camera, fainter with rank. Default 3. 0 draws
+   * only the focused system's rings.
+   */
+  nearest?: number;
+  /** A ring's projected radius (CSS px) where it starts to show and where it is at full strength. Default [12, 80]. */
+  fadePx?: [number, number];
+}
+
+/** The orbit-path defaults: subtle, and only near where you are looking. */
+export const COSMOS_ORBIT_DEFAULTS = Object.freeze({ normal: 0.07, active: 0.3, dimmed: 0.02, nearest: 3, fadePx: [12, 80] as readonly [number, number] });
+
+/**
+ * Which systems draw their orbit rings, and how strongly (0 to 1), by the
+ * system's root index. The selected, focused and hovered bodies' systems are
+ * 1; then the `nearest` other systems by camera distance to their star, at
+ * (nearest - rank) / (nearest + 1). Every other system draws nothing. Ties
+ * break by node id, so the choice is stable.
+ */
+export function orbitSystemWeights(
+  meta: CosmosMeta,
+  positions: ArrayLike<number>,
+  camera: ArrayLike<number>,
+  focus: { selected: number; focused: number; hovered: number },
+  systems: readonly number[],
+  nearest: number,
+): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const i of [focus.selected, focus.focused, focus.hovered]) {
+    const b = i >= 0 ? meta.bodies[i] : undefined;
+    if (!b || b.kind === CORE || b.kind === COMET) continue;
+    if (b.system >= 0) out.set(b.system, 1);
+  }
+  const k = Math.max(0, Math.floor(nearest));
+  if (!k) return out;
+  const idOf = (s: number) => meta.ids[s] ?? "";
+  const best: { s: number; d: number }[] = [];
+  for (const s of systems) {
+    if (out.has(s)) continue;
+    const d = Math.hypot(positions[s * 3] - camera[0], positions[s * 3 + 1] - camera[1], positions[s * 3 + 2] - camera[2]);
+    if (best.length === k && d > best[k - 1].d) continue;
+    best.push({ s, d });
+    best.sort((a, b) => a.d - b.d || (idOf(a.s) < idOf(b.s) ? -1 : idOf(a.s) > idOf(b.s) ? 1 : 0));
+    if (best.length > k) best.pop();
+  }
+  best.forEach((x, rank) => out.set(x.s, (k - rank) / (k + 1)));
+  return out;
+}
+
+/** A ring's distance fade: 0 below `fadePx[0]` of projected radius, 1 from `fadePx[1]`, smooth between. */
+export function orbitFade(radius: number, distance: number, viewHeight: number, fovDeg: number, fadePx: readonly [number, number]): number {
+  const px = (radius / Math.max(1e-6, distance)) * (viewHeight / 2 / Math.tan(((fovDeg || 50) * Math.PI) / 360));
+  const lo = fadePx[0], hi = Math.max(lo + 1e-6, fadePx[1]);
+  const x = Math.min(1, Math.max(0, (px - lo) / (hi - lo)));
+  return x * x * (3 - 2 * x);
 }
 
 /**
- * The orbit paths: one ring per orbiting body round what it orbits (planets
- * round stars, moons round their moving planets), in the body's colour,
- * brighter for the highlighted. One instanced line set: a unit circle in the
- * geometry, each ring's centre, axes (its radius folded in) and colour per
- * instance. Tagged `layer: "orbits"`; the cosmos declares it hidden by default.
+ * The orbit paths: rings round what each body orbits (planets round stars,
+ * moons round their moving planets), in the body's colour. Subtle by default:
+ * only the selected, focused or hovered system's rings and the few systems
+ * nearest the camera are drawn, faint, and each fades out as it shrinks on
+ * screen, so the sky never turns into a dartboard. One instanced line set: a
+ * unit circle in the geometry, each ring's centre, axes (its radius folded in)
+ * and colour per instance. Tagged `layer: "orbits"`.
  */
 export function cosmosOrbits(options: CosmosOrbitOptions = {}): GraphLayer3D {
   const seg = Math.max(8, Math.min(256, Math.floor(options.segments ?? 64)));
-  const aNormal = options.alpha?.normal ?? 0.12;
-  const aActive = options.alpha?.active ?? 0.5;
-  const aDimmed = options.alpha?.dimmed ?? 0.03;
+  const aNormal = options.alpha?.normal ?? COSMOS_ORBIT_DEFAULTS.normal;
+  const aActive = options.alpha?.active ?? COSMOS_ORBIT_DEFAULTS.active;
+  const aDimmed = options.alpha?.dimmed ?? COSMOS_ORBIT_DEFAULTS.dimmed;
+  const nearest = options.nearest ?? COSMOS_ORBIT_DEFAULTS.nearest;
+  const fadePx = options.fadePx ?? COSMOS_ORBIT_DEFAULTS.fadePx;
   const STRIDE = 13;
+  let systems: number[] = [];
+  const cam = new THREE.Vector3();
   let lines: THREE.LineSegments | null = null;
   let geo: THREE.InstancedBufferGeometry | null = null;
   let buffer: THREE.InstancedInterleavedBuffer | null = null;
@@ -1022,9 +1084,14 @@ export function cosmosOrbits(options: CosmosOrbitOptions = {}): GraphLayer3D {
     mount(c) {
       const meta = c.meta as CosmosMeta | undefined;
       owners = [];
+      const roots = new Set<number>();
       (meta?.bodies ?? []).forEach((b, i) => {
-        if (b.parent >= 0 && !b.pinned && b.kind !== COMET && b.orbitRadius > 0) owners.push(i);
+        if (b.parent >= 0 && !b.pinned && b.kind !== COMET && b.orbitRadius > 0) {
+          owners.push(i);
+          roots.add(b.system);
+        }
       });
+      systems = [...roots].sort((a, b) => a - b);
       geo = new THREE.InstancedBufferGeometry();
       const pos = new Float32Array(seg * 6);
       for (let k = 0; k < seg; k++) {
@@ -1051,12 +1118,19 @@ export function cosmosOrbits(options: CosmosOrbitOptions = {}): GraphLayer3D {
       const m = metaOf(f);
       const out = buffer.array as Float32Array;
       const p = f.positions;
+      f.camera.getWorldPosition(cam);
+      const weights = orbitSystemWeights(m, p, [cam.x, cam.y, cam.z], f, systems, nearest);
       let w = 0;
       for (const i of owners) {
         const b = m.bodies[i];
         if (!b) continue;
+        const weight = weights.get(b.system) ?? 0;
+        if (weight <= 0) continue;
+        const r = b.orbitRadius, q = b.parent;
+        const fade = orbitFade(r, Math.hypot(p[q * 3] - cam.x, p[q * 3 + 1] - cam.y, p[q * 3 + 2] - cam.z), f.height, f.camera.fov, fadePx);
+        if (fade <= 0) continue;
         const u = liveVector(m, b, b.orbitU), v = liveVector(m, b, b.orbitV);
-        const at = w * STRIDE, r = b.orbitRadius, q = b.parent;
+        const at = w * STRIDE;
         out[at] = p[q * 3];
         out[at + 1] = p[q * 3 + 1];
         out[at + 2] = p[q * 3 + 2];
@@ -1070,7 +1144,7 @@ export function cosmosOrbits(options: CosmosOrbitOptions = {}): GraphLayer3D {
         out[at + 10] = f.colors[i * 3 + 1];
         out[at + 11] = f.colors[i * 3 + 2];
         const st = f.states[i];
-        out[at + 12] = st === NODE_ACTIVE ? aActive : st === NODE_DIMMED ? aDimmed : aNormal;
+        out[at + 12] = (st === NODE_ACTIVE ? aActive : st === NODE_DIMMED ? aDimmed : aNormal) * weight * fade;
         w++;
       }
       geo.instanceCount = w;
@@ -1085,17 +1159,18 @@ export function cosmosOrbits(options: CosmosOrbitOptions = {}): GraphLayer3D {
       mat = null;
       buffer = null;
       owners = [];
+      systems = [];
     },
   };
 }
 
-/** The layers the cosmos draws. Orbit paths start hidden; constellations appear when the lens asks for them. */
+/** The layers the cosmos draws. Orbit paths are on and subtle (see `cosmosOrbits`); constellations appear when the lens asks for them. */
 export function cosmosLayers(options: Pick<CosmosLayoutOptions, "constellations"> = {}): GraphLayerSpec[] {
   return [
     { id: "background", label: "Sky" },
     { id: "clusters", label: "Galaxies" },
     { id: "cores", label: "Galactic cores" },
-    { id: "orbits", label: "Orbit paths", visible: false },
+    { id: "orbits", label: "Orbit paths" },
     { id: "links", label: "Light" },
     ...(options.constellations ? [{ id: "constellations", label: "Constellations" }] : []),
     { id: "comets", label: "Comet tails" },
@@ -1125,7 +1200,8 @@ export const cosmosDefaults = {
     const boost = b.tail > 0 ? 2 : 1;
     if (b.kind === CORE) return -1;
     if (b.kind === COMET) return Infinity;
-    if (b.kind === STAR) return b.galaxy < 0 && b.extent > b.size * 1.6 ? Infinity : b.galaxy >= 0 ? b.extent : b.size * 5 * boost;
+    // A star in a galaxy names its system; a lone one on the arms (a crowded system's overflow) is named up close, as in open space.
+    if (b.kind === STAR) return b.galaxy < 0 && b.extent > b.size * 1.6 ? Infinity : b.galaxy >= 0 ? Math.max(b.extent, b.size * 5 * boost) : b.size * 5 * boost;
     if (b.kind === PLANET || b.kind === MOON) return (b.pinned ? b.size * 4 : b.spacing) * boost;
     return b.size * 4 * boost;
   },

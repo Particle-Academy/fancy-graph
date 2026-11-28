@@ -110,7 +110,8 @@ describe("3D presets", () => {
         s.frame();
         s.frame();
       });
-      expect(["root", "p2"]).toContain(next);
+      // In the cosmos, p1's galaxy core (a node since 0.4.0, made by default since 0.4.1) is a neighbour too.
+      expect(["root", "p2", "cosmos:galaxy:problem"]).toContain(next);
       const shown = [...s.stage.overlayRoot.querySelectorAll<HTMLElement>("[data-fancy-graph-label]")].filter((e) => e.style.display !== "none").map((e) => e.dataset.fancyGraphLabel);
       expect(shown).toContain(next);
 
@@ -126,8 +127,10 @@ describe("3D presets", () => {
     });
   });
 
-  it("cosmos forces no galaxies; `galaxies: { by: { field: \"type\" } }` (0.3.0's default) makes one per type", () => {
-    expect(mount({ preset: "cosmos" }).ref.current!.getClusters()).toEqual([]);
+  it("cosmos makes a galaxy per group unless `galaxies: false`; `galaxies: { by: { field: \"type\" } }` (0.3.0's default) still makes one per type", () => {
+    // 0.4.1: by default, a galaxy per group; `galaxies: false` gives none.
+    expect(mount({ preset: "cosmos" }).ref.current!.getClusters().map((c) => c.id).sort()).toEqual(["agent", "problem", "solution"]);
+    expect(mount({ preset: "cosmos", cosmos: { galaxies: false } }).ref.current!.getClusters()).toEqual([]);
     const s = mount({ preset: "cosmos", cosmos: { galaxies: { by: { field: "type" } } } });
     expect(s.ref.current!.getClusters().map((c) => c.id).sort()).toEqual(["agent", "problem", "solution"]);
   });

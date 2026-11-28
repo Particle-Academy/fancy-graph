@@ -10,6 +10,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-28
+
+**The cosmos is galactic out of the box again.** With 0.4.0's default lens a
+dense graph collapsed into a few giant systems, each a dartboard of dozens of
+orbit rings, and the host's grouping changed nothing. Now the grouping shapes
+the sky.
+
+**Consumer action:** none, unless you want 0.4.0's galaxy-less sky back: pass
+`cosmos={{ galaxies: false }}` (or `"none"`) and the layout is 0.4.0's exactly
+(the suite holds it to fingerprints taken from the 0.4.0 code). If you count
+nodes, the default galaxy centres are synthetic nodes (`cosmos:galaxy:<group>`,
+`synthetic: true`), as any `{ field }` galaxy lens already made in 0.4.0.
+
+### Changed
+
+- **Default: a spiral galaxy per node group.** With no `galaxies` lens and two
+  or more distinct `node.group` values (or `data.type` values), each group is
+  a spiral galaxy around a core node. Changing the grouping re-forms the
+  galaxies, and the bodies fly to their new places (the 1.2 s transition).
+  An explicit `galaxies: { by: ... }` still wins. Not under
+  `systems: { by: { relation } }`, whose hierarchy already says what orbits
+  what (its groups usually name body kinds: star, planet, moon). **Opt out
+  with `galaxies: false`** (or `"none"`, or `null`).
+- **Systems in a galaxy stay small.** A new limit,
+  `limits.maxPlanetsPerSystem` (default 12), caps the planets and moons one
+  system holds; a `"hubs"` system also holds at most `hubShare` (a new cosmos
+  option, default 0.2) of its galaxy. The overflow becomes stars of their own
+  on the same galaxy's arms, the best-connected staying with the star. A
+  membership link given up this way is drawn as light. Without galaxies,
+  0.4.0's systems stand unchanged.
+- **Orbit paths are on by default, and subtle.** Faint rings (alpha 0.07,
+  0.3 highlighted, 0.02 dimmed), drawn only for the selected, focused or
+  hovered system and the 3 systems nearest the camera (fainter with rank),
+  each fading out as it shrinks on screen. `cosmosOrbits({ nearest, fadePx,
+  alpha })` tunes it; `layers={{ orbits: false }}` hides them as before.
+- **A lone star on a galaxy's arm is named up close**, as a free star is, so
+  the overflow stars stay legible.
+
+### Added
+
+- `autoGalaxyField(nodes)` and `AUTO_GALAXY_FIELDS` (the field the default
+  lens groups by), `orbitSystemWeights` and `orbitFade` (the orbit-path
+  selection and fade, headless) and `COSMOS_ORBIT_DEFAULTS`, from `./three`.
+- Browser captures of the kit map grouped by family and by language, and the
+  typescript system up close (`docs/presets/3d-cosmos-kit*.png`); the harness
+  regroups a mounted view and fails if the galaxies do not re-form.
+
 ## [0.4.0] - 2026-11-28
 
 **The cosmos is redesigned (breaking, in a minor: pre-1.0).** Gravity places,

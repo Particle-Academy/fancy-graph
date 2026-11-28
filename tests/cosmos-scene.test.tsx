@@ -13,7 +13,7 @@ import type { GraphData } from "../src/core";
 import { GraphSceneOnStage, lightArcPoints, type GraphScene3DHandle, type GraphSceneOnStageProps, type StageLike } from "../src/three/index";
 import { CORE, MOON, PLANET, STAR, type CosmosLenses, type CosmosMeta } from "../src/three/presets/cosmos-layout";
 import { cosmosData } from "../examples/cosmos/data";
-import { KIT_NOW, kitData, relationData } from "../examples/cosmos/kit";
+import { KIT_NOW, kitData, kitGrouped, relationData } from "../examples/cosmos/kit";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -65,7 +65,7 @@ describe("the `cosmos` prop: lenses as JSON", () => {
   it("configures the preset in place, and `getState` reports it", () => {
     const s = mount({ data: cosmosData(120, 160, 1), cosmos: { galaxies: { by: { field: "type" } } }, reducedMotion: true });
     expect(s.ref.current!.getClusters().map((c) => c.id)).toContain("agent");
-    s.render({ data: cosmosData(120, 160, 1), cosmos: {}, reducedMotion: true });
+    s.render({ data: cosmosData(120, 160, 1), cosmos: { galaxies: false }, reducedMotion: true });
     s.frames(1);
     expect(s.ref.current!.getClusters()).toEqual([]);
   });
@@ -93,6 +93,22 @@ describe("lens switches and sorts animate", () => {
     const i = m.index.get(id)!;
     const star = s.ref.current!.positionOf(String(m.ids[m.bodies[i].parent]))!;
     expect(dist(after, star)).toBeCloseTo(m.bodies[i].orbitRadius, 1);
+  });
+
+  it("regrouping the data (node.group) re-forms the default galaxies, and the bodies fly there", () => {
+    const s = mount({ data: kitGrouped(150, "family"), paused: true });
+    expect(s.ref.current!.getClusters().map((c) => c.id).sort()).toEqual(["commerce", "documents", "engines", "surfaces", "tooling"]);
+    const id = "pkg-30";
+    const before = s.ref.current!.positionOf(id)!;
+    s.render({ data: kitGrouped(150, "language"), paused: true });
+    s.frames(1);
+    const early = s.ref.current!.positionOf(id)!;
+    s.frames(400);
+    const after = s.ref.current!.positionOf(id)!;
+    expect(s.ref.current!.getClusters().map((c) => c.id).sort()).toEqual(["php", "python", "typescript"]);
+    expect(dist(before, after)).toBeGreaterThan(20);
+    expect(dist(early, after)).toBeGreaterThan(1);
+    expect(dist(early, before)).toBeLessThan(dist(before, after));
   });
 
   it("under reduced motion the change is immediate", () => {
@@ -148,7 +164,7 @@ describe("light: curved arcs that follow the arms and glow on focus", () => {
 
   it("the light layer draws only light (never gravity), as arcs, brighter for the focus", () => {
     const data = relationData();
-    const s = mount({ data, cosmos: { systems: { by: { relation: ["written-in", "part-of"] } } }, reducedMotion: true, linkVisibility: "all" });
+    const s = mount({ data, cosmos: { systems: { by: { relation: ["written-in", "part-of"] } }, galaxies: false }, reducedMotion: true, linkVisibility: "all" });
     s.frames(1);
     const mesh = s.scene.getObjectsByProperty("name", "cosmos-light")[0] as THREE.Mesh;
     expect(mesh).toBeDefined();

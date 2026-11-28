@@ -45,6 +45,12 @@ export interface GraphLimits {
   maxPlacement: number;
   /** Levels of orbit in a cosmos system: star, planet, moon, ... A deeper body orbits the deepest allowed ancestor. */
   maxOrbitDepth: number;
+  /**
+   * Bodies (planets and moons) one cosmos system holds when it sits in a
+   * galaxy. The rest become stars of their own on the galaxy's arms, so a
+   * crowded system reads as a stretch of arm rather than a dartboard.
+   */
+  maxPlanetsPerSystem: number;
   /** Steps the cosmos takes, once, to spread free systems and galaxies by their light links. */
   maxSpreadTicks: number;
   /** Comets (travellers and arrivals) at once; the rest are ordinary bodies. */
@@ -85,6 +91,7 @@ export const DEFAULT_LIMITS: Readonly<GraphLimits> = Object.freeze({
   minDistance: 2,
   maxPlacement: 100000,
   maxOrbitDepth: 4,
+  maxPlanetsPerSystem: 12,
   maxSpreadTicks: 160,
   maxComets: 256,
   maxCometStops: 6,

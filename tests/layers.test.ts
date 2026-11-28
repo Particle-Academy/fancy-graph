@@ -37,8 +37,8 @@ describe("layer visibility (headless)", () => {
     expect(GRAPH_PRESETS_3D.layered.layers!.map((l) => l.id)).toContain("clusters");
     const cosmos = resolveLayers(GRAPH_PRESETS_3D.cosmos.layers!);
     expect(cosmos.map((l) => l.id).sort()).toEqual(["background", "clusters", "comets", "cores", "labels", "links", "orbits"]);
-    // Orbit paths are new; off by default so the published look is unchanged.
-    expect(cosmos.find((l) => l.id === "orbits")!.visible).toBe(false);
+    // Orbit paths are on by default since 0.4.1, drawn faint and only near the focus (cosmos-galactic.test.ts).
+    expect(cosmos.find((l) => l.id === "orbits")!.visible).toBe(true);
   });
 });
 

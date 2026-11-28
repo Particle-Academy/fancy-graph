@@ -50,6 +50,22 @@ export function kitData(count = 60, seed = 3): GraphData {
 }
 
 /**
+ * The kit map as a host types it: `node.group` set from one of its fields (the
+ * first value of an array), the way the sandbox's "type nodes by" switch does.
+ * Regrouping is the same nodes and links with another field.
+ */
+export function kitGrouped(count = 150, by: "family" | "language" = "family", seed = 3): GraphData {
+  const data = kitData(count, seed);
+  return {
+    nodes: data.nodes.map((n) => {
+      const v = n.data![by];
+      return { ...n, group: String(Array.isArray(v) ? v[0] : v) };
+    }),
+    links: data.links,
+  };
+}
+
+/**
  * The same idea with explicit relations instead of fields: languages are real
  * nodes that sit in a "languages" galaxy, packages are `written-in` a language,
  * and a few packages have `part-of` sub-packages (moons).

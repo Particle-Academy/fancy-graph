@@ -9,7 +9,7 @@ import { forceLayout, GRAPH_PRESETS_2D, GraphView, type GraphData, type GraphVie
 import { cosmosPreset, GRAPH_PRESETS_3D, GraphView3D, type CosmosLenses, type GraphScene3DHandle } from "../../src/three/index";
 import { COSMOS_COLORS, cosmosData } from "../../examples/cosmos/data";
 import { BEACHHEAD_COSMOS } from "../../examples/cosmos/renderers";
-import { KIT_NOW, kitData } from "../../examples/cosmos/kit";
+import { KIT_NOW, kitGrouped } from "../../examples/cosmos/kit";
 import { GraphViewControls } from "../../src/controls/index";
 
 type Handle = GraphViewHandle | GraphScene3DHandle;
@@ -154,8 +154,22 @@ function looksData(): GraphData {
 
 const COSMOS_DATA: Record<string, () => GraphData> = {
   beachhead: () => cosmosData(650, 900, 1),
-  kit: () => kitData(120, 3),
+  // The kit map as the sandbox types it (owner, 2026-11-28): about 150 packages, grouped by family or by language.
+  kit: () => kitGrouped(150, "family"),
+  kitLanguage: () => kitGrouped(150, "language"),
   looks: looksData,
+};
+
+/** Group colours for the kit map, by family and by language, beside the beachhead types. */
+const KIT_COLORS: Record<string, string> = {
+  surfaces: "#38bdf8",
+  documents: "#a78bfa",
+  commerce: "#fbbf24",
+  engines: "#f87171",
+  tooling: "#34d399",
+  typescript: "#60a5fa",
+  php: "#c084fc",
+  python: "#facc15",
 };
 
 /** The kit dependency map, the cosmos's first real use: systems by language, a constellation per feature, comets. */
@@ -176,8 +190,50 @@ interface CosmosCase {
   selected?: string | null;
   constellation?: string | null;
   fly?: { id: string; distance: number } | null;
+  /** Fly to a system (by id, or the one with the most planets in a galaxy), from `factor` times its extent. */
+  flyToSystem?: { id?: string; galaxy?: string; factor: number } | null;
   layers?: Record<string, boolean>;
   frames?: number;
+  /** Animate (no reduced motion), so a data change flies the bodies. */
+  motion?: boolean;
+}
+
+type CosmosMetaLite = { ids: string[]; bodies: { kind: number; system: number; galaxy: number; extent: number }[]; galaxies: { key: string; systems: number[] }[]; comets: unknown[] };
+let cosmosCase: CosmosCase | null = null;
+const cosmosRef = createRef<GraphScene3DHandle>();
+function renderCosmos(c: CosmosCase, data: GraphData) {
+  root!.render(
+    <GraphView3D
+      ref={cosmosRef}
+      data={data}
+      preset="cosmos"
+      cosmos={COSMOS_LENSES[c.lenses]}
+      theme={{ base: "dark", typeColors: { ...COSMOS_COLORS, ...KIT_COLORS } }}
+      defaultSelected={c.selected ?? null}
+      defaultSelectedConstellation={c.constellation ?? null}
+      defaultLayers={c.layers}
+      flyOnSelect={false}
+      reducedMotion={!c.motion}
+      style={{ width: "100%", height: "100%" }}
+      aria-label="Cosmos"
+    />,
+  );
+}
+function cosmosSummary() {
+  const h = cosmosRef.current!;
+  const m = h.getMeta() as CosmosMetaLite;
+  const sizes = new Map<number, number>();
+  m.bodies.forEach((b, i) => {
+    if (b.kind !== 4 && b.kind !== 5 && b.system !== i) sizes.set(b.system, (sizes.get(b.system) ?? 0) + 1);
+  });
+  return {
+    ...h.getState(),
+    comets: m.comets.length,
+    galaxies: m.galaxies.map((g) => ({ key: g.key, systems: g.systems.length })),
+    largestSystem: Math.max(0, ...sizes.values()),
+    constellations: h.getConstellations().map((k) => k.id),
+    crumbs: h.getBreadcrumbs().map((k) => k.id),
+  };
 }
 
 const harness = {
@@ -185,30 +241,35 @@ const harness = {
   async mountCosmos(c: CosmosCase) {
     reset();
     host().style.background = "#02030a";
-    const data = COSMOS_DATA[c.data]();
-    const ref = createRef<GraphScene3DHandle>();
-    root!.render(
-      <GraphView3D
-        ref={ref}
-        data={data}
-        preset="cosmos"
-        cosmos={COSMOS_LENSES[c.lenses]}
-        theme={{ base: "dark", typeColors: COSMOS_COLORS }}
-        defaultSelected={c.selected ?? null}
-        defaultSelectedConstellation={c.constellation ?? null}
-        defaultLayers={c.layers}
-        flyOnSelect={false}
-        reducedMotion
-        style={{ width: "100%", height: "100%" }}
-        aria-label="Cosmos"
-      />,
-    );
+    cosmosCase = c;
+    renderCosmos(c, COSMOS_DATA[c.data]());
     await waitFrames(30);
-    handle = ref.current;
-    if (c.fly) (handle as GraphScene3DHandle).flyTo(c.fly.id, { distance: c.fly.distance });
-    await waitFrames(c.frames ?? 30);
+    handle = cosmosRef.current;
     const h = handle as GraphScene3DHandle;
-    return { ...h.getState(), comets: (h.getMeta() as { comets: unknown[] }).comets.length, constellations: h.getConstellations().map((k) => k.id), crumbs: h.getBreadcrumbs().map((k) => k.id) };
+    if (c.fly) h.flyTo(c.fly.id, { distance: c.fly.distance });
+    if (c.flyToSystem) {
+      const f = c.flyToSystem;
+      const m = h.getMeta() as CosmosMetaLite;
+      const count = (s: number) => m.bodies.filter((b, i) => b.system === s && i !== s && b.kind !== 5).length;
+      const g = f.galaxy ? m.galaxies.find((x) => x.key === f.galaxy) : undefined;
+      const star = f.id ? m.ids.indexOf(f.id) : g ? [...g.systems].sort((a, b) => count(b) - count(a) || (m.ids[a] < m.ids[b] ? -1 : 1))[0] : -1;
+      if (star >= 0) h.flyTo(m.ids[star], { distance: m.bodies[star].extent * f.factor });
+    }
+    await waitFrames(c.frames ?? 30);
+    return cosmosSummary();
+  },
+  /** The mounted cosmos, same view, its data swapped for another dataset (a regrouping); waits `frames`. */
+  async regroupCosmos(data: string, frames: number, watch: string) {
+    const h = cosmosRef.current!;
+    const before = { clusters: h.getClusters().map((c) => c.id).sort(), at: h.positionOf(watch) };
+    renderCosmos(cosmosCase!, COSMOS_DATA[data]());
+    await waitFrames(frames);
+    return { before, after: { clusters: cosmosRef.current!.getClusters().map((c) => c.id).sort(), at: cosmosRef.current!.positionOf(watch) }, summary: cosmosSummary() };
+  },
+  /** Waits, then where a node is now. */
+  async positionAfter(id: string, frames: number) {
+    await waitFrames(frames);
+    return cosmosRef.current!.positionOf(id);
   },
   /**
    * Switches one mounted view through every ordered pair of its kind's presets,

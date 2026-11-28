@@ -175,7 +175,7 @@ describe("layer visibility (3D)", () => {
       ["background", true],
       ["clusters", true],
       ["cores", true],
-      ["orbits", false],
+      ["orbits", true],
       ["links", true],
       ["comets", true],
       ["labels", true],
@@ -183,10 +183,10 @@ describe("layer visibility (3D)", () => {
     expect(ref.current!.getState().linkVisibility).toBe("focus");
     expect(ref.current!.getState().animated).toBe(true);
     act(() => {
-      ref.current!.setLayer("orbits", true);
+      ref.current!.setLayer("orbits", false);
     });
-    expect(ref.current!.getState().layers.orbits).toBe(true);
-    expect(wrap.dataset.fancyGraphLayers).toBe("background clusters cores orbits links comets labels");
+    expect(ref.current!.getState().layers.orbits).toBe(false);
+    expect(wrap.dataset.fancyGraphLayers).toBe("background clusters cores links comets labels");
     expect(wrap.dataset.fancyGraphLinkVisibility).toBe("focus");
     wrap.remove();
   });
@@ -195,7 +195,8 @@ describe("layer visibility (3D)", () => {
 describe("cosmos orbit paths", () => {
   it("draws one closed ring per orbiting body round what it orbits, as one instanced set in the layer tagged `orbits`", () => {
     const { nodes, links } = cosmosData(120, 160, 3);
-    const s = mount({ data: { nodes, links }, preset: "cosmos", layout: undefined, layers: { orbits: true } });
+    // Every system, at any size on screen: the geometry, without the default's focus-and-fade selection.
+    const s = mount({ data: { nodes, links }, preset: "cosmos", layout: undefined, renderers: { cluster: [cosmosOrbits({ nearest: 1e9, fadePx: [0, 1e-9] })] } });
     act(() => s.frame());
     const lines = s.scene.getObjectsByProperty("name", "cosmos-orbits") as THREE.LineSegments[];
     expect(lines).toHaveLength(1);
@@ -212,12 +213,15 @@ describe("cosmos orbit paths", () => {
     expect(lines[0].parent!.visible).toBe(true);
   });
 
-  it("is hidden by default, and a factory exists for custom cosmos looks", () => {
-    const { nodes, links } = cosmosData(60, 80, 3);
+  it("is on by default but subtle: from the home view only a few systems' rings, and a factory exists for custom cosmos looks", () => {
+    const { nodes, links } = cosmosData(120, 160, 3);
     const s = mount({ data: { nodes, links }, preset: "cosmos", layout: undefined });
     act(() => s.frame());
-    const seg = s.scene.getObjectsByProperty("name", "cosmos-orbits")[0];
-    expect(seg.parent!.visible).toBe(false);
+    const seg = s.scene.getObjectsByProperty("name", "cosmos-orbits")[0] as THREE.LineSegments;
+    expect(seg.parent!.visible).toBe(true);
+    const meta = s.ref.current!.getMeta() as { bodies: { parent: number; pinned: boolean; kind: number; orbitRadius: number }[] };
+    const orbiters = meta.bodies.filter((b) => b.parent >= 0 && !b.pinned && b.kind !== 5 && b.orbitRadius > 0).length;
+    expect((seg.geometry as THREE.InstancedBufferGeometry).instanceCount).toBeLessThan(orbiters / 3);
     expect(cosmosOrbits().layer).toBe("orbits");
   });
 });

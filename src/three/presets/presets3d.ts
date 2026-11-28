@@ -76,7 +76,8 @@ export function network3DPreset(options: ForceLayoutOptions = {}): GraphPreset3D
  * their moons) always orbit; galaxies are optional; free systems are spread by
  * their light links; comets travel between systems; constellations are drawn
  * over the sky. Configure it with lenses, here or through the `cosmos` prop.
- * Default: `systems: { by: "hubs" }`, no galaxies, travellers on.
+ * Default: `systems: { by: "hubs" }`, a spiral galaxy per node group when
+ * there are two or more groups (`galaxies: false` for none), travellers on.
  */
 export function cosmosPreset(options: CosmosLayoutOptions & CosmosRenderOptions = {}): GraphPreset3D {
   const { labelReach, ...defaults } = cosmosDefaults;

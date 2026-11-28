@@ -122,7 +122,11 @@ if (shoot) {
   const docs = join(here, "..", "..", "docs", "presets");
   const cases = {
     "3d-cosmos-galaxies": { data: "beachhead", lenses: "galaxies" },
+    // The kit map with the sandbox's lens (systems by language, no galaxies asked for): 0.4.1 forms a galaxy per group.
     "3d-cosmos-kit": { data: "kit", lenses: "kit", frames: 40 },
+    "3d-cosmos-kit-language": { data: "kitLanguage", lenses: "kit", frames: 40 },
+    // Up close: the typescript system (capped at 12 planets) on its galaxy's arm, among the overflow stars, its rings faint.
+    "3d-cosmos-kit-close": { data: "kitLanguage", lenses: "kit", flyToSystem: { id: "cosmos:system:typescript", factor: 2.2 }, frames: 90 },
     "3d-cosmos-constellation": { data: "kit", lenses: "kit", constellation: "ai", frames: 40 },
     "3d-cosmos-system": { data: "looks", lenses: "looks", fly: { id: "sol", distance: 330 }, layers: { orbits: true }, frames: 40 },
   };
@@ -134,6 +138,22 @@ if (shoot) {
     await page.screenshot({ path: join(docs, `${name}.png`) });
   }
 }
+
+// Regrouping (owner, 2026-11-28: "it doesn't matter what I group it by"): the same kit map, its node.group
+// switched from family to language on a mounted view, re-forms the galaxies and flies every body there.
+phase = "cosmos regroup";
+await page.evaluate(() => window.harness.mountCosmos({ data: "kit", lenses: "kit", frames: 60, motion: true }));
+const regroup = await page.evaluate(() => window.harness.regroupCosmos("kitLanguage", 12, "pkg-30"));
+await shot({ path: join(shots, "3d-cosmos-regroup-midflight.png") });
+regroup.landed = await page.evaluate(() => window.harness.positionAfter("pkg-30", 150));
+await shot({ path: join(shots, "3d-cosmos-regroup-landed.png") });
+const d3 = (a, b) => (a && b ? Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) : 0);
+regroup.ok =
+  regroup.before.clusters.join(",") === "commerce,documents,engines,surfaces,tooling" &&
+  regroup.after.clusters.join(",") === "php,python,typescript" &&
+  d3(regroup.before.at, regroup.landed) > 20 &&
+  d3(regroup.after.at, regroup.landed) > 1;
+console.log(JSON.stringify({ regroup }));
 
 // Gamepad path: focus stepping, neighbourhood mode, analog camera, on both renderers.
 const gamepad = {};
@@ -222,7 +242,7 @@ const switchOk = Object.values(presetSwitch).every((steps) => steps.length > 0 &
 
 await browser.close();
 
-results.checks = { labels2dVisible: labels2d, selected3d: picked, handles3d, clicked2d: clicked, gamepad, gallery, cosmosShots, cosmosControls, presetSwitch };
+results.checks = { labels2dVisible: labels2d, selected3d: picked, handles3d, clicked2d: clicked, gamepad, gallery, cosmosShots, regroup, cosmosControls, presetSwitch };
 results.console = consoleLog;
 mkdirSync(join(here, "..", "results"), { recursive: true });
 writeFileSync(join(here, "..", "results", `frame-times-${profile}.json`), JSON.stringify(results, null, 2) + "\n");
@@ -233,8 +253,8 @@ console.log(JSON.stringify({ checks: results.checks, console: consoleLog }, null
 // profile is the check, and any warning at all fails it.
 const driverNote = (m) => profile === "software" && m.type === "warning" && /^\[\.WebGL-[^\]]+\]GL Driver Message \(OpenGL, Performance/.test(m.text);
 const bad = consoleLog.filter((m) => (m.type === "error" || m.type === "pageerror" || m.type === "warning") && !driverNote(m));
-if (bad.length || clicked !== "agent-0" || picked !== "agent-0" || !controlsOk || !switchOk) {
-  console.error(`FAILED: ${bad.length} console errors/warnings, clicked=${clicked}, picked=${picked}, cosmosControls=${JSON.stringify(cosmosControls)}, presetSwitch=${switchOk ? "ok" : JSON.stringify(presetSwitch)}`);
+if (bad.length || clicked !== "agent-0" || picked !== "agent-0" || !controlsOk || !switchOk || !regroup.ok) {
+  console.error(`FAILED: ${bad.length} console errors/warnings, clicked=${clicked}, picked=${picked}, cosmosControls=${JSON.stringify(cosmosControls)}, presetSwitch=${switchOk ? "ok" : JSON.stringify(presetSwitch)}, regroup=${JSON.stringify(regroup)}`);
   process.exit(1);
 }
 console.log("OK");

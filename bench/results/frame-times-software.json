@@ -1,6 +1,6 @@
 {
   "profile": "software",
-  "measuredAt": "2026-11-28T02:56:44.215Z",
+  "measuredAt": "2026-11-28T08:49:55.430Z",
   "browser": "chromium 159.0.8154.6 (headless)",
   "webgl": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
   "viewport": "1280x800 @1x",
@@ -12,10 +12,10 @@
       "links": 900,
       "frameCostMs": {
         "frames": 10,
-        "mean": 0.42,
-        "p50": 0.4,
-        "p95": 0.8,
-        "max": 0.8
+        "mean": 0.43,
+        "p50": 0.3,
+        "p95": 1.1,
+        "max": 1.1
       },
       "rafIntervalMs": {
         "frames": 240,
@@ -32,16 +32,16 @@
       "links": 6000,
       "frameCostMs": {
         "frames": 10,
-        "mean": 1.31,
-        "p50": 1.4,
-        "p95": 1.5,
-        "max": 1.5
+        "mean": 1.75,
+        "p50": 1.7,
+        "p95": 2.7,
+        "max": 2.7
       },
       "rafIntervalMs": {
         "frames": 240,
         "mean": 16.67,
         "p50": 16.7,
-        "p95": 16.7,
+        "p95": 16.8,
         "max": 16.8
       }
     },
@@ -52,17 +52,17 @@
       "links": 1550,
       "frameCostMs": {
         "frames": 10,
-        "mean": 0.99,
-        "p50": 0.9,
-        "p95": 2,
-        "max": 2
+        "mean": 1.23,
+        "p50": 1.3,
+        "p95": 2.3,
+        "max": 2.3
       },
       "rafIntervalMs": {
-        "frames": 102,
-        "mean": 39.54,
+        "frames": 97,
+        "mean": 41.41,
         "p50": 33.4,
         "p95": 50.1,
-        "max": 333.3
+        "max": 383.3
       }
     },
     {
@@ -72,17 +72,17 @@
       "links": 6000,
       "frameCostMs": {
         "frames": 10,
-        "mean": 8.23,
-        "p50": 7.2,
-        "p95": 15.8,
-        "max": 15.8
+        "mean": 7.81,
+        "p50": 6.4,
+        "p95": 16,
+        "max": 16
       },
       "rafIntervalMs": {
-        "frames": 21,
-        "mean": 192.06,
-        "p50": 133.3,
-        "p95": 250.1,
-        "max": 1149.9
+        "frames": 20,
+        "mean": 199.16,
+        "p50": 133.4,
+        "p95": 1283.2,
+        "max": 1283.2
       }
     }
   ],
@@ -93,7 +93,7 @@
       "renderer": "3d",
       "nodes": "658",
       "selected": "agent-0",
-      "labels": 14,
+      "labels": 12,
       "clusterLabels": 8
     },
     "clicked2d": "agent-0",
@@ -119,6 +119,99 @@
     },
     "gallery": {},
     "cosmosShots": {},
+    "regroup": {
+      "before": {
+        "clusters": [
+          "commerce",
+          "documents",
+          "engines",
+          "surfaces",
+          "tooling"
+        ],
+        "at": [
+          -898.7523803710938,
+          -128.0791473388672,
+          485.82049560546875
+        ]
+      },
+      "after": {
+        "clusters": [
+          "php",
+          "python",
+          "typescript"
+        ],
+        "at": [
+          -721.3543090820312,
+          -310.68756103515625,
+          470.9983825683594
+        ]
+      },
+      "summary": {
+        "constellation": null,
+        "selected": null,
+        "hovered": null,
+        "focused": null,
+        "matches": [],
+        "nodeCount": 156,
+        "linkCount": 610,
+        "dropped": {
+          "nodes": 0,
+          "links": 0,
+          "invalidLinks": 0,
+          "duplicateNodes": 0
+        },
+        "layers": {
+          "background": true,
+          "clusters": true,
+          "cores": true,
+          "orbits": true,
+          "links": true,
+          "constellations": true,
+          "comets": true,
+          "labels": true,
+          "constellation:3d": true,
+          "constellation:ai": true,
+          "constellation:documents": true,
+          "constellation:payments": true,
+          "constellation:search": true
+        },
+        "linkVisibility": "focus",
+        "paused": false,
+        "animated": true,
+        "comets": 22,
+        "galaxies": [
+          {
+            "key": "typescript",
+            "systems": 60
+          },
+          {
+            "key": "php",
+            "systems": 31
+          },
+          {
+            "key": "python",
+            "systems": 9
+          }
+        ],
+        "largestSystem": 12,
+        "constellations": [
+          "3d",
+          "ai",
+          "documents",
+          "payments",
+          "search"
+        ],
+        "crumbs": [
+          null
+        ]
+      },
+      "landed": [
+        39.7015380859375,
+        -1097.8564453125,
+        440.4443359375
+      ],
+      "ok": true
+    },
     "cosmosControls": {
       "orbitRings": true,
       "afterReclick": "",
@@ -282,22 +375,22 @@
     {
       "phase": "bench: 3D cosmos, 650 nodes",
       "type": "warning",
-      "text": "[.WebGL-0x1db40060b200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
+      "text": "[.WebGL-0x75ec00627200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
     },
     {
       "phase": "bench: 3D cosmos, 650 nodes",
       "type": "warning",
-      "text": "[.WebGL-0x1db40060b200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
+      "text": "[.WebGL-0x75ec00627200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
     },
     {
       "phase": "bench: 3D cosmos, 650 nodes",
       "type": "warning",
-      "text": "[.WebGL-0x1db40060b200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
+      "text": "[.WebGL-0x75ec00627200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels"
     },
     {
       "phase": "bench: 3D cosmos, 650 nodes",
       "type": "warning",
-      "text": "[.WebGL-0x1db40060b200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
+      "text": "[.WebGL-0x75ec00627200]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)"
     }
   ]
 }

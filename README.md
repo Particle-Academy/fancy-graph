@@ -77,7 +77,7 @@ labels and neighbourhood mode.
 | **`network`** (2D, the default): a force-directed network.<br>![2D network](docs/presets/2d-network.png) | **`radial`** (2D): an ego view centred on the focused node, else the selection, re-centred as it moves.<br>![2D radial](docs/presets/2d-radial.png) |
 | **`hierarchy`** (2D): a layered tree for directed links, roots on top.<br>![2D hierarchy](docs/presets/2d-hierarchy.png) | **`clustered`** (2D): a map grouped by node type, a labelled hull per type.<br>![2D clustered](docs/presets/2d-clustered.png) |
 | **`network`** (3D, the default): lit spheres and lines.<br>![3D network](docs/presets/3d-network.png) | **`layered`** (3D): a plane per node type, or per bucket of a date or number field.<br>![3D layered](docs/presets/3d-layered.png) |
-| **`cosmos`** (3D): gravity places, light draws. Stars with orbiting planets and moons, optional spiral galaxies, free systems spread by their links, comets and constellations. Shown with a star selected: its light arcs out to everything it links to. See [The cosmos](#the-cosmos).<br>![3D cosmos](docs/presets/3d-cosmos.png) | |
+| **`cosmos`** (3D): gravity places, light draws. Stars with orbiting planets and moons, a spiral galaxy per node group by default, free systems spread by their links when galaxies are off, comets and constellations. Shown with a star selected: its light arcs out to everything it links to. See [The cosmos](#the-cosmos).<br>![3D cosmos](docs/presets/3d-cosmos.png) | |
 
 ### The cosmos
 
@@ -94,7 +94,7 @@ with **lenses**, plain JSON on the `cosmos` prop:
   preset="cosmos"
   cosmos={{
     systems: { by: { field: "language" } },          // or { relation: "written-in" }, "hubs" (default), "none"
-    galaxies: { by: { field: "family" } },           // optional; or { relation: "member-of" }
+    galaxies: { by: { field: "family" } },           // default: a galaxy per node.group; or { relation: "member-of" }; false = none
     sort: { by: { field: "releasedAt" }, dir: "asc" },// orbit order and order along the arms; never regroups
     constellations: { by: { field: "features" } },  // or [{ id, label, match: { relation | field | linkedTo } }]
     comets: ["multi-membership", { field: "releasedAt", within: "14d" }],
@@ -106,8 +106,19 @@ with **lenses**, plain JSON on the `cosmos` prop:
   the view makes per field value (`cosmos:system:<value>`,
   `cosmos:galaxy:<value>`, `synthetic: true`). It can be selected, labelled
   and searched, and counts against the limits.
+- **Galaxies by group, out of the box.** With no `galaxies` lens, a graph whose
+  nodes have two or more groups (`node.group`, or a `type` field) becomes one
+  spiral galaxy per group, so regrouping your data re-forms the galaxies and
+  the bodies fly there. Not under `systems: { by: { relation } }`, whose
+  hierarchy already says what orbits what. `galaxies: false` turns them off
+  (0.4.0's sky, exactly); `galaxies: { by: ... }` picks another grouping.
 - **Systems always orbit**: planets round their star, moons round their planet.
-  **Galaxies are optional**; without them, systems float free.
+  In a galaxy a system stays small: at most `limits.maxPlanetsPerSystem` (12)
+  planets and moons, and a `"hubs"` system at most `hubShare` (0.2) of its
+  galaxy. The rest become stars of their own along the same galaxy's arms.
+- **Orbit paths are subtle**: faint rings, drawn only for the selected,
+  focused or hovered system and the three nearest the camera, fading out as
+  they shrink on screen (`cosmosOrbits({ nearest, fadePx, alpha })`).
 - **Changing a lens or the sort is a flight, not a reload**: bodies fly from
   their old orbits to their new ones (instant under reduced motion).
 - **Comets**: a node in several systems travels an eccentric loop through each
@@ -128,11 +139,13 @@ with **lenses**, plain JSON on the `cosmos` prop:
 | | |
 |---|---|
 | **Galaxies**: `galaxies: { by: { field: "type" } }`, a spiral galaxy per node type around its core.<br>![Cosmos galaxies](docs/presets/3d-cosmos-galaxies.png) | **A system up close**: skins, atmospheres, rings and moons, all from node fields, with the orbit paths on.<br>![Cosmos system](docs/presets/3d-cosmos-system.png) |
-| **The kit dependency map**: systems by language, a constellation per feature, comets for polyglots and recent releases.<br>![Cosmos kit map](docs/presets/3d-cosmos-kit.png) | **A constellation selected**: its figure lit and its members named.<br>![Cosmos constellation](docs/presets/3d-cosmos-constellation.png) |
+| **The kit dependency map**, 150 packages grouped by family: systems by language, a constellation per feature, comets for polyglots and recent releases, and a galaxy per group with no galaxies lens at all.<br>![Cosmos kit map](docs/presets/3d-cosmos-kit.png) | **The same map grouped by language**: the same nodes and lens, only `node.group` changed, so the galaxies re-form.<br>![Cosmos kit map by language](docs/presets/3d-cosmos-kit-language.png) |
+| **Up close**: the typescript system, capped at 12 planets with faint orbit rings, its overflow named along the arm.<br>![Cosmos kit close](docs/presets/3d-cosmos-kit-close.png) | **A constellation selected**: its figure lit and its members named.<br>![Cosmos constellation](docs/presets/3d-cosmos-constellation.png) |
 
-Upgrading from 0.3.0, where the cosmos made a galaxy per type by itself: pass
-`cosmos={{ galaxies: { by: { field: "type" } } }}`. The
-[changelog](./CHANGELOG.md) lists the rest.
+Upgrading from 0.3.0, where the cosmos made a galaxy per type by itself: since
+0.4.1 it does again (by `node.group`), and
+`cosmos={{ galaxies: { by: { field: "type" } } }}` still asks for it
+explicitly. The [changelog](./CHANGELOG.md) lists the rest.
 
 ### Selection, layers and the view controls
 
@@ -145,7 +158,7 @@ on and off through a controlled JSON prop:
 | 2D `network`, `radial`, `hierarchy`; 3D `network` | `links`, `labels` |
 | 2D `clustered` | `links`, `labels`, `clusters` |
 | 3D `layered` | `links`, `labels`, `clusters` (the planes) |
-| 3D `cosmos` | `background` (sky), `clusters` (galaxies), `cores` (galactic cores), `orbits` (orbit paths: off), `links` (light), `comets` (comet tails), `labels`; with constellations, `constellations` and one `constellation:<id>` each |
+| 3D `cosmos` | `background` (sky), `clusters` (galaxies), `cores` (galactic cores), `orbits` (orbit paths: on, faint, near the focus only), `links` (light), `comets` (comet tails), `labels`; with constellations, `constellations` and one `constellation:<id>` each |
 
 ```tsx
 const [layers, setLayers] = useState({ orbits: true });
@@ -298,10 +311,10 @@ GPU: NVIDIA RTX 3070 through ANGLE / Direct3D 11.
 
 | View | Nodes / links | Frame cost p50 / p95 / max (ms) | Frame interval p50 / p95 (ms) |
 |---|---|---|---|
-| 2D canvas | 650 / 900 | 0.2 / 0.4 / 0.8 | 16.7 / 16.7 |
-| 2D canvas | 4,000 / 6,000 | 0.8 / 1.5 / 2.2 | 16.7 / 16.8 |
-| 3D cosmos | 650 / 900 | 0.5 / 0.7 / 0.9 | 16.7 / 16.7 |
-| 3D cosmos | 4,000 / 6,000 | 2.2 / 2.7 / 3.2 | 16.7 / 16.8 |
+| 2D canvas | 650 / 900 | 0.2 / 0.4 / 0.7 | 16.7 / 16.7 |
+| 2D canvas | 4,000 / 6,000 | 1.0 / 1.4 / 2.1 | 16.7 / 16.8 |
+| 3D cosmos | 650 / 900 | 0.4 / 0.7 / 0.9 | 16.7 / 16.7 |
+| 3D cosmos | 4,000 / 6,000 | 2.4 / 3.3 / 3.8 | 16.7 / 16.8 |
 
 The 0.4.0 cosmos costs more per frame than 0.3.0's (1.0 ms p50 at 4,000
 nodes, same harness): each body now carries its look (skin, atmosphere, rings,
@@ -314,10 +327,10 @@ samples):
 
 | View | Nodes / links | Frame cost p50 / p95 (ms) | Frame interval p50 / p95 (ms) |
 |---|---|---|---|
-| 2D canvas | 650 / 900 | 0.4 / 0.8 | 16.7 / 16.7 |
-| 2D canvas | 4,000 / 6,000 | 1.4 / 1.5 | 16.7 / 16.7 |
-| 3D cosmos | 650 / 900 | 0.9 / 2.0 | 33.4 / 50.1 |
-| 3D cosmos | 4,000 / 6,000 | 7.2 / 15.8 | 133.3 / 250.1 |
+| 2D canvas | 650 / 900 | 0.3 / 1.1 | 16.7 / 16.7 |
+| 2D canvas | 4,000 / 6,000 | 1.7 / 2.7 | 16.7 / 16.8 |
+| 3D cosmos | 650 / 900 | 1.3 / 2.3 | 33.4 / 50.1 |
+| 3D cosmos | 4,000 / 6,000 | 6.4 / 16.0 | 133.4 / 1283.2 |
 
 Without a GPU the 3D cosmos's frame interval grows far past its frame cost, so
 the time goes to rasterising (its glows, procedural surfaces, galaxy discs and

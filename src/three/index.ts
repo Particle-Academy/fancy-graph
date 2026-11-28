@@ -54,6 +54,8 @@ export {
   STAR,
   SYSTEM_LINK,
   SYSTEM_PREFIX,
+  AUTO_GALAXY_FIELDS,
+  autoGalaxyField,
   cometTailPoints,
   cosmosLayout,
   fieldValues,
@@ -88,6 +90,7 @@ export {
   type CosmosSystemsLens,
 } from "./presets/cosmos-layout";
 export {
+  COSMOS_ORBIT_DEFAULTS,
   cosmosCometTails,
   cosmosConstellations,
   cosmosDefaults,
@@ -97,6 +100,8 @@ export {
   cosmosOrbits,
   cosmosRenderers,
   cosmosTextures,
+  orbitFade,
+  orbitSystemWeights,
   type CosmosCometOptions,
   type CosmosCoreOptions,
   type CosmosLightOptions,

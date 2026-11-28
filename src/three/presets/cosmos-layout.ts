@@ -57,6 +57,33 @@ export interface CosmosGalaxiesLens {
   by: CosmosGrouping;
 }
 
+/**
+ * The fields the default lens forms galaxies by, in order: the first with two
+ * or more distinct values over the real nodes wins. `group` reads
+ * `data.group`, else `node.group`; `type` reads `data.type`, else `node.group`.
+ */
+export const AUTO_GALAXY_FIELDS = ["group", "type"] as const;
+
+/**
+ * The field the default lens (no `galaxies` given) forms galaxies by: the
+ * first of `AUTO_GALAXY_FIELDS` with two or more distinct values over the real
+ * (non-synthetic) nodes, else null (no galaxies).
+ */
+export function autoGalaxyField(nodes: readonly GraphNode[]): string | null {
+  for (const field of AUTO_GALAXY_FIELDS) {
+    const values = new Set<string>();
+    for (const n of nodes) {
+      if (!n || typeof n.id !== "string" || n.synthetic) continue;
+      for (const v of fieldValues(readField(n, field))) values.add(v);
+      if (values.size >= 2) return field;
+    }
+  }
+  return null;
+}
+
+/** True when the lens turns galaxies off: `false`, `null`, `"none"` or `{ by: "none" }`. */
+const galaxiesOff = (g: CosmosLenses["galaxies"]) => g === false || g === null || g === "none" || (typeof g === "object" && (g as { by?: unknown }).by === "none");
+
 export type CosmosSortKey = "degree" | "label" | "id" | { field: string };
 
 export interface CosmosSortLens {
@@ -89,7 +116,14 @@ export type CosmosCometLens = "multi-membership" | { field: string; within: stri
 /** Everything the cosmos can be told, as JSON. The `cosmos` prop on `<GraphView3D>` takes exactly this. */
 export interface CosmosLenses {
   systems?: CosmosSystemsLens | null;
-  galaxies?: CosmosGalaxiesLens | null;
+  /**
+   * Absent (the default): when the nodes have two or more groups (`node.group`
+   * or a `type` field), one spiral galaxy per group, so regrouping the data
+   * re-forms the galaxies. Not with `systems: { by: { relation } }`, whose
+   * hierarchy already says what orbits what. `false` / `"none"` / `null`: no
+   * galaxies (0.4.0's default sky).
+   */
+  galaxies?: CosmosGalaxiesLens | false | "none" | null;
   sort?: CosmosSortLens | null;
   constellations?: CosmosConstellationSpec[] | { by: { field: string } } | null;
   /** Default `"multi-membership"`. `false` or `[]` turns comets off: the first membership wins and the rest are light. */
@@ -103,6 +137,13 @@ export type CosmosLookKind = "star" | "planet" | "moon" | "asteroid" | "comet";
 export interface CosmosLayoutOptions extends CosmosLenses {
   /** Most planets per star in `"hubs"` systems before another star is made. Default 14. */
   maxOrbiters?: number;
+  /**
+   * In a galaxy, the largest share of its members one `"hubs"` system may
+   * hold (at least 3), so a galaxy is several systems rather than one big
+   * one. Default 0.2. Every system in a galaxy is also capped by
+   * `limits.maxPlanetsPerSystem`.
+   */
+  hubShare?: number;
   /** The home view direction the sky faces. Match GraphScene's homeYaw / homePitch. */
   homeYaw?: number;
   homePitch?: number;
@@ -354,16 +395,18 @@ export const GALAXY_LINK = "cosmos:galaxy";
  * The input is never mutated. Without a field lens the data is returned as is.
  */
 export function prepareCosmos(data: GraphData, lenses: CosmosLenses = {}): GraphData {
-  const sys = fieldOf(lenses.systems ?? undefined);
-  const gal = fieldOf(lenses.galaxies ?? undefined);
-  if (!sys && !gal) return data;
   const nodes = Array.isArray(data?.nodes) ? data.nodes : [];
   const links = Array.isArray(data?.links) ? data.links : [];
+  const sys = fieldOf(lenses.systems ?? undefined);
+  // An explicit gravity relation already says what orbits what (its groups usually name body kinds: star, planet, moon), so groups do not cut across it.
+  const auto = lenses.galaxies === undefined && !relationsOf(lenses.systems ?? undefined) ? autoGalaxyField(nodes) : null;
+  const gal = galaxiesOff(lenses.galaxies) ? null : (fieldOf(lenses.galaxies as CosmosGalaxiesLens | undefined) ?? auto);
+  if (!sys && !gal) return data;
   const taken = new Set<string>();
   for (const n of nodes) if (n && typeof n.id === "string") taken.add(n.id);
   const extraNodes: GraphNode[] = [];
   const extraLinks: GraphLink[] = [];
-  const make = (prefix: string, kind: string, field: string) => {
+  const make = (prefix: string, kind: string, field: string, mark: boolean) => {
     const members = new Map<string, string[]>();
     const seen = new Set<string>();
     for (const n of nodes) {
@@ -378,12 +421,13 @@ export function prepareCosmos(data: GraphData, lenses: CosmosLenses = {}): Graph
       let id = prefix + v;
       while (taken.has(id)) id += "~";
       taken.add(id);
-      extraNodes.push({ id, label: v, group: v, synthetic: true });
+      // A centre the default lens made says which field made it, so the layout reads the same field.
+      extraNodes.push(mark ? { id, label: v, group: v, synthetic: true, data: { cosmosAutoField: field } } : { id, label: v, group: v, synthetic: true });
       for (const m of members.get(v)!) extraLinks.push({ source: m, target: id, kind, synthetic: true });
     }
   };
-  if (gal) make(GALAXY_PREFIX, GALAXY_LINK, gal);
-  if (sys) make(SYSTEM_PREFIX, SYSTEM_LINK, sys);
+  if (gal) make(GALAXY_PREFIX, GALAXY_LINK, gal, lenses.galaxies === undefined);
+  if (sys) make(SYSTEM_PREFIX, SYSTEM_LINK, sys, false);
   return { nodes: [...extraNodes, ...nodes], links: [...extraLinks, ...links] };
 }
 
@@ -740,8 +784,16 @@ export function cosmosLayout(options: CosmosLayoutOptions = {}): GraphLayoutStep
       const sysMode = options.systems === null ? "none" : (options.systems?.by ?? "hubs");
       const sysRel = relationsOf(options.systems ?? undefined);
       const sysField = fieldOf(options.systems ?? undefined);
-      const galRel = relationsOf(options.galaxies ?? undefined);
-      const galField = fieldOf(options.galaxies ?? undefined);
+      const galLens = galaxiesOff(options.galaxies) ? undefined : (options.galaxies as CosmosGalaxiesLens | undefined);
+      const galRel = relationsOf(galLens);
+      // The default lens: the field `prepareCosmos` formed galaxies by, read off the centres it made.
+      let autoField: string | null = null;
+      if (options.galaxies === undefined)
+        for (let i = 0; i < n && !autoField; i++) {
+          const f = synthetic[i] && id(i).startsWith(GALAXY_PREFIX) ? nodes[i].data?.cosmosAutoField : undefined;
+          if (typeof f === "string" && f) autoField = f;
+        }
+      const galField = fieldOf(galLens) ?? autoField;
       const gravity = new Uint8Array(graph.links.length);
       for (const l of graph.links) {
         const kind = l.link.kind;
@@ -875,11 +927,25 @@ export function cosmosLayout(options: CosmosLayoutOptions = {}): GraphLayoutStep
           lightAdj[l.b].set(l.a, (lightAdj[l.b].get(l.a) ?? 0) + l.weight);
         }
 
+      // ---- 7a. In galaxies, systems stay small: none holds more than limits.maxPlanetsPerSystem bodies (planets
+      // and moons), and a hub no more than a modest share of its galaxy. Without galaxies, 0.4.0's sky stands.
+      const galactic = !!(galField || galRel);
+      const hubShare = clamp(finiteOr(options.hubShare, 0.2), 0.01, 1);
+      const planetCap = Math.max(1, Math.floor(limits.maxPlanetsPerSystem));
+      const galSize = new Map<number, number>();
+      for (let i = 0; i < n; i++) if (!isCore[i] && !synthetic[i] && nodeCore[i] >= 0) galSize.set(nodeCore[i], (galSize.get(nodeCore[i]) ?? 0) + 1);
+      const capOf = (i: number) => {
+        const size = nodeCore[i] >= 0 ? (galSize.get(nodeCore[i]) ?? 0) : 0;
+        return size ? Math.min(planetCap, Math.max(3, Math.ceil(hubShare * size))) : planetCap;
+      };
+
       // ---- 7. Hubs: the best-connected are stars, their neighbours planets, the planets' neighbours moons.
       if (sysMode === "hubs") {
         const rank = Array.from({ length: n }, (_, i) => i).filter((i) => !isCore[i] && !synthetic[i]).sort((a, b) => lightDegree[b] - lightDegree[a] || byId(a, b));
         const role = new Int8Array(n).fill(-1); // 0 star, 1 planet, 2 moon, 3 rogue
         const load = new Map<number, number>();
+        /** In galaxies: bodies in each star's system, planets and moons. */
+        const sysLoad = new Map<number, number>();
         const rankOf = new Map(rank.map((x, k) => [x, k]));
         const strongest = (i: number, j: number) => {
           let best = -1, w = -1;
@@ -898,6 +964,10 @@ export function cosmosLayout(options: CosmosLayoutOptions = {}): GraphLayoutStep
             let host = -1, best = 0;
             for (const [j, w] of lightAdj[i]) {
               if (role[j] !== want || nodeCore[j] !== nodeCore[i] || (load.get(j) ?? 0) >= cap) continue;
+              if (galactic) {
+                const star = want === 0 ? j : parent[j];
+                if ((sysLoad.get(star) ?? 0) >= capOf(star)) continue;
+              }
               if (w > best || (w === best && host >= 0 && rankOf.get(j)! < rankOf.get(host)!)) (best = w), (host = j);
             }
             return host;
@@ -915,8 +985,61 @@ export function cosmosLayout(options: CosmosLayoutOptions = {}): GraphLayoutStep
           role[i] = as;
           parent[i] = host;
           load.set(host, (load.get(host) ?? 0) + 1);
+          if (galactic) {
+            const star = as === 1 ? host : parent[host];
+            sysLoad.set(star, (sysLoad.get(star) ?? 0) + 1);
+          }
           const li = strongest(i, host);
           if (li >= 0) gravity[li] = 1;
+        }
+      }
+
+      // ---- 7b. In galaxies, any system past its cap (a field or relation star with a crowd) keeps its
+      // best-connected bodies, inner orbits first; the rest become stars of their own on the same galaxy's arms.
+      if (galactic) {
+        const kids: number[][] = Array.from({ length: n }, () => []);
+        for (let i = 0; i < n; i++) if (parent[i] >= 0 && !isTraveller.has(i)) kids[parent[i]].push(i);
+        const order = (a: number, b: number) => lightDegree[b] - lightDegree[a] || byId(a, b);
+        for (const k of kids) k.sort(order);
+        const coreOfSystem = (r: number) => {
+          if (nodeCore[r] >= 0) return nodeCore[r];
+          const votes = new Map<number, number>();
+          const stack = [...kids[r]];
+          while (stack.length) {
+            const j = stack.pop()!;
+            if (nodeCore[j] >= 0) votes.set(nodeCore[j], (votes.get(nodeCore[j]) ?? 0) + 1);
+            stack.push(...kids[j]);
+          }
+          let best = -1, bv = 0;
+          for (const [c, v] of votes) if (v > bv || (v === bv && best >= 0 && byId(c, best) < 0)) (bv = v), (best = c);
+          return best;
+        };
+        const queue = Array.from({ length: n }, (_, i) => i).filter((i) => parent[i] < 0 && !isCore[i] && !isTraveller.has(i) && kids[i].length).sort(byId);
+        for (let q = 0; q < queue.length; q++) {
+          const r = queue[q];
+          const cap = sysMode === "hubs" ? capOf(r) : planetCap;
+          const core = coreOfSystem(r);
+          let kept = 0;
+          let frontier = [r];
+          while (frontier.length) {
+            const next: number[] = [];
+            for (const p of frontier)
+              for (const c of kids[p]) {
+                if (kept < cap) {
+                  kept++;
+                  next.push(c);
+                  continue;
+                }
+                parent[c] = -1;
+                if (nodeCore[c] < 0) nodeCore[c] = core;
+                for (const li of graph.incident[c]) {
+                  const l = graph.links[li];
+                  if (gravity[li] === 1 && (l.a === p || l.b === p)) gravity[li] = l.link.synthetic ? 3 : 0;
+                }
+                if (kids[c].length) queue.push(c);
+              }
+            frontier = next;
+          }
         }
       }
 

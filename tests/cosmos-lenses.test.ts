@@ -117,7 +117,7 @@ describe("gravity: systems always orbit", () => {
   });
 
   it("no systems lens at all: every node is a lone star, and the sky is a starfield shaped by its links", () => {
-    const { m } = run(cosmosData(80, 100, 2), { systems: { by: "none" } });
+    const { m } = run(cosmosData(80, 100, 2), { systems: { by: "none" }, galaxies: false });
     expect(m.bodies.every((b) => b.kind === STAR && b.parent < 0)).toBe(true);
     expect(m.galaxies).toHaveLength(0);
   });
@@ -146,14 +146,14 @@ describe("gravity: systems always orbit", () => {
 });
 
 describe("galaxies are optional", () => {
-  it("without a galaxies lens there are no galaxies, and free systems are spread by their light links", () => {
+  it("with galaxies off there are no galaxies, and free systems are spread by their light links", () => {
     const data = cosmosData(300, 420, 5);
-    const { r, m } = run(data);
+    const { r, m } = run(data, { galaxies: false });
     expect(r.clusters()).toEqual([]);
     const roots = m.bodies.map((b, i) => (b.parent < 0 && b.kind !== CORE ? i : -1)).filter((i) => i >= 0);
     // Light between systems: the number of links joining two systems.
     const sys = m.bodies.map((b) => b.system);
-    const g = normalizeGraph(prepareCosmos(data, {}));
+    const g = normalizeGraph(prepareCosmos(data, { galaxies: false }));
     const linked = new Set<string>();
     for (const l of g.links) {
       const a = sys[l.a], b = sys[l.b];

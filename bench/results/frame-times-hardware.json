@@ -1,6 +1,6 @@
 {
   "profile": "hardware",
-  "measuredAt": "2026-11-28T02:55:38.560Z",
+  "measuredAt": "2026-11-28T08:48:36.855Z",
   "browser": "chromium 159.0.8154.6 (headless)",
   "webgl": "ANGLE (NVIDIA, NVIDIA GeForce RTX 3070 (0x00002488) Direct3D11 vs_5_0 ps_5_0, D3D11)",
   "viewport": "1280x800 @1x",
@@ -12,10 +12,10 @@
       "links": 900,
       "frameCostMs": {
         "frames": 240,
-        "mean": 0.21,
+        "mean": 0.19,
         "p50": 0.2,
         "p95": 0.4,
-        "max": 0.8
+        "max": 0.7
       },
       "rafIntervalMs": {
         "frames": 240,
@@ -32,10 +32,10 @@
       "links": 6000,
       "frameCostMs": {
         "frames": 240,
-        "mean": 0.91,
-        "p50": 0.8,
-        "p95": 1.5,
-        "max": 2.2
+        "mean": 0.99,
+        "p50": 1,
+        "p95": 1.4,
+        "max": 2.1
       },
       "rafIntervalMs": {
         "frames": 240,
@@ -52,8 +52,8 @@
       "links": 1550,
       "frameCostMs": {
         "frames": 240,
-        "mean": 0.48,
-        "p50": 0.5,
+        "mean": 0.44,
+        "p50": 0.4,
         "p95": 0.7,
         "max": 0.9
       },
@@ -72,10 +72,10 @@
       "links": 6000,
       "frameCostMs": {
         "frames": 240,
-        "mean": 2.09,
-        "p50": 2.2,
-        "p95": 2.7,
-        "max": 3.2
+        "mean": 2.29,
+        "p50": 2.4,
+        "p95": 3.3,
+        "max": 3.8
       },
       "rafIntervalMs": {
         "frames": 241,
@@ -93,7 +93,7 @@
       "renderer": "3d",
       "nodes": "658",
       "selected": "agent-0",
-      "labels": 13,
+      "labels": 11,
       "clusterLabels": 8
     },
     "clicked2d": "agent-0",
@@ -154,7 +154,7 @@
         "labels": 9
       },
       "3d-cosmos": {
-        "nodes": 650,
+        "nodes": 658,
         "selected": "agent-0",
         "preset": "cosmos",
         "theme": "dark",
@@ -187,7 +187,7 @@
           "background": true,
           "clusters": true,
           "cores": true,
-          "orbits": false,
+          "orbits": true,
           "links": true,
           "comets": true,
           "labels": true
@@ -196,11 +196,46 @@
         "paused": false,
         "animated": true,
         "comets": 0,
+        "galaxies": [
+          {
+            "key": "agent",
+            "systems": 94
+          },
+          {
+            "key": "problem",
+            "systems": 43
+          },
+          {
+            "key": "post",
+            "systems": 35
+          },
+          {
+            "key": "money_pattern",
+            "systems": 36
+          },
+          {
+            "key": "solution",
+            "systems": 13
+          },
+          {
+            "key": "submolt",
+            "systems": 18
+          },
+          {
+            "key": "concept",
+            "systems": 4
+          },
+          {
+            "key": "organization",
+            "systems": 2
+          }
+        ],
+        "largestSystem": 12,
         "constellations": [],
         "crumbs": [
           null
         ],
-        "labels": 5,
+        "labels": 6,
         "constellationLabels": 0
       },
       "3d-cosmos-kit": {
@@ -209,8 +244,8 @@
         "hovered": null,
         "focused": null,
         "matches": [],
-        "nodeCount": 123,
-        "linkCount": 369,
+        "nodeCount": 158,
+        "linkCount": 610,
         "dropped": {
           "nodes": 0,
           "links": 0,
@@ -221,7 +256,7 @@
           "background": true,
           "clusters": true,
           "cores": true,
-          "orbits": false,
+          "orbits": true,
           "links": true,
           "constellations": true,
           "comets": true,
@@ -235,7 +270,30 @@
         "linkVisibility": "focus",
         "paused": false,
         "animated": true,
-        "comets": 18,
+        "comets": 22,
+        "galaxies": [
+          {
+            "key": "documents",
+            "systems": 26
+          },
+          {
+            "key": "commerce",
+            "systems": 28
+          },
+          {
+            "key": "tooling",
+            "systems": 18
+          },
+          {
+            "key": "surfaces",
+            "systems": 17
+          },
+          {
+            "key": "engines",
+            "systems": 11
+          }
+        ],
+        "largestSystem": 12,
         "constellations": [
           "3d",
           "ai",
@@ -246,7 +304,129 @@
         "crumbs": [
           null
         ],
-        "labels": 14,
+        "labels": 10,
+        "constellationLabels": 5
+      },
+      "3d-cosmos-kit-language": {
+        "constellation": null,
+        "selected": null,
+        "hovered": null,
+        "focused": null,
+        "matches": [],
+        "nodeCount": 156,
+        "linkCount": 610,
+        "dropped": {
+          "nodes": 0,
+          "links": 0,
+          "invalidLinks": 0,
+          "duplicateNodes": 0
+        },
+        "layers": {
+          "background": true,
+          "clusters": true,
+          "cores": true,
+          "orbits": true,
+          "links": true,
+          "constellations": true,
+          "comets": true,
+          "labels": true,
+          "constellation:3d": true,
+          "constellation:ai": true,
+          "constellation:documents": true,
+          "constellation:payments": true,
+          "constellation:search": true
+        },
+        "linkVisibility": "focus",
+        "paused": false,
+        "animated": true,
+        "comets": 22,
+        "galaxies": [
+          {
+            "key": "typescript",
+            "systems": 60
+          },
+          {
+            "key": "php",
+            "systems": 31
+          },
+          {
+            "key": "python",
+            "systems": 9
+          }
+        ],
+        "largestSystem": 12,
+        "constellations": [
+          "3d",
+          "ai",
+          "documents",
+          "payments",
+          "search"
+        ],
+        "crumbs": [
+          null
+        ],
+        "labels": 12,
+        "constellationLabels": 5
+      },
+      "3d-cosmos-kit-close": {
+        "constellation": null,
+        "selected": null,
+        "hovered": null,
+        "focused": null,
+        "matches": [],
+        "nodeCount": 156,
+        "linkCount": 610,
+        "dropped": {
+          "nodes": 0,
+          "links": 0,
+          "invalidLinks": 0,
+          "duplicateNodes": 0
+        },
+        "layers": {
+          "background": true,
+          "clusters": true,
+          "cores": true,
+          "orbits": true,
+          "links": true,
+          "constellations": true,
+          "comets": true,
+          "labels": true,
+          "constellation:3d": true,
+          "constellation:ai": true,
+          "constellation:documents": true,
+          "constellation:payments": true,
+          "constellation:search": true
+        },
+        "linkVisibility": "focus",
+        "paused": false,
+        "animated": true,
+        "comets": 22,
+        "galaxies": [
+          {
+            "key": "typescript",
+            "systems": 60
+          },
+          {
+            "key": "php",
+            "systems": 31
+          },
+          {
+            "key": "python",
+            "systems": 9
+          }
+        ],
+        "largestSystem": 12,
+        "constellations": [
+          "3d",
+          "ai",
+          "documents",
+          "payments",
+          "search"
+        ],
+        "crumbs": [
+          null
+        ],
+        "labels": 19,
         "constellationLabels": 5
       },
       "3d-cosmos-constellation": {
@@ -255,8 +435,8 @@
         "hovered": null,
         "focused": null,
         "matches": [],
-        "nodeCount": 123,
-        "linkCount": 369,
+        "nodeCount": 158,
+        "linkCount": 610,
         "dropped": {
           "nodes": 0,
           "links": 0,
@@ -267,7 +447,7 @@
           "background": true,
           "clusters": true,
           "cores": true,
-          "orbits": false,
+          "orbits": true,
           "links": true,
           "constellations": true,
           "comets": true,
@@ -281,7 +461,30 @@
         "linkVisibility": "focus",
         "paused": false,
         "animated": true,
-        "comets": 18,
+        "comets": 22,
+        "galaxies": [
+          {
+            "key": "documents",
+            "systems": 26
+          },
+          {
+            "key": "commerce",
+            "systems": 28
+          },
+          {
+            "key": "tooling",
+            "systems": 18
+          },
+          {
+            "key": "surfaces",
+            "systems": 17
+          },
+          {
+            "key": "engines",
+            "systems": 11
+          }
+        ],
+        "largestSystem": 12,
         "constellations": [
           "3d",
           "ai",
@@ -292,7 +495,7 @@
         "crumbs": [
           null
         ],
-        "labels": 36,
+        "labels": 35,
         "constellationLabels": 5
       },
       "3d-cosmos-system": {
@@ -322,6 +525,8 @@
         "paused": false,
         "animated": true,
         "comets": 0,
+        "galaxies": [],
+        "largestSystem": 12,
         "constellations": [],
         "crumbs": [
           null
@@ -329,6 +534,99 @@
         "labels": 6,
         "constellationLabels": 0
       }
+    },
+    "regroup": {
+      "before": {
+        "clusters": [
+          "commerce",
+          "documents",
+          "engines",
+          "surfaces",
+          "tooling"
+        ],
+        "at": [
+          -895.5892333984375,
+          -126.10403442382812,
+          473.37579345703125
+        ]
+      },
+      "after": {
+        "clusters": [
+          "php",
+          "python",
+          "typescript"
+        ],
+        "at": [
+          -855.0830078125,
+          -168.02655029296875,
+          470.16400146484375
+        ]
+      },
+      "summary": {
+        "constellation": null,
+        "selected": null,
+        "hovered": null,
+        "focused": null,
+        "matches": [],
+        "nodeCount": 156,
+        "linkCount": 610,
+        "dropped": {
+          "nodes": 0,
+          "links": 0,
+          "invalidLinks": 0,
+          "duplicateNodes": 0
+        },
+        "layers": {
+          "background": true,
+          "clusters": true,
+          "cores": true,
+          "orbits": true,
+          "links": true,
+          "constellations": true,
+          "comets": true,
+          "labels": true,
+          "constellation:3d": true,
+          "constellation:ai": true,
+          "constellation:documents": true,
+          "constellation:payments": true,
+          "constellation:search": true
+        },
+        "linkVisibility": "focus",
+        "paused": false,
+        "animated": true,
+        "comets": 22,
+        "galaxies": [
+          {
+            "key": "typescript",
+            "systems": 60
+          },
+          {
+            "key": "php",
+            "systems": 31
+          },
+          {
+            "key": "python",
+            "systems": 9
+          }
+        ],
+        "largestSystem": 12,
+        "constellations": [
+          "3d",
+          "ai",
+          "documents",
+          "payments",
+          "search"
+        ],
+        "crumbs": [
+          null
+        ]
+      },
+      "landed": [
+        38.243194580078125,
+        -1093.2088623046875,
+        417.8614196777344
+      ],
+      "ok": true
     },
     "cosmosControls": {
       "orbitRings": true,
