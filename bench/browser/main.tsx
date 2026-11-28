@@ -29,9 +29,20 @@ let handle: Handle | null = null;
 const host = () => document.getElementById("app")!;
 
 function reset() {
+  // fancy-3d-three 0.5.0's Stage disposes its renderer on unmount but does not force the
+  // context loss, so each mount holds a WebGL context until GC, and past 16 Chrome warns
+  // ("Too many active WebGL contexts"). Release them here, after the unmount.
+  const canvases = [...host().querySelectorAll("canvas")];
   root?.unmount();
+  for (const c of canvases) (c.getContext("webgl2") ?? c.getContext("webgl"))?.getExtension("WEBGL_lose_context")?.loseContext();
   host().replaceChildren();
+  // A full-screen case mounts in a small box (`small`), so entering full screen must GROW the view.
+  host().style.right = host().style.bottom = host().style.width = host().style.height = "";
   root = createRoot(host());
+}
+
+function small() {
+  Object.assign(host().style, { right: "auto", bottom: "auto", width: "640px", height: "400px" });
 }
 
 function waitFrames(n: number): Promise<void> {
@@ -196,6 +207,7 @@ interface CosmosCase {
   frames?: number;
   /** Animate (no reduced motion), so a data change flies the bodies. */
   motion?: boolean;
+  search?: string;
 }
 
 type CosmosMetaLite = { ids: string[]; bodies: { kind: number; system: number; galaxy: number; extent: number }[]; galaxies: { key: string; systems: number[] }[]; comets: unknown[] };
@@ -212,6 +224,7 @@ function renderCosmos(c: CosmosCase, data: GraphData) {
       defaultSelected={c.selected ?? null}
       defaultSelectedConstellation={c.constellation ?? null}
       defaultLayers={c.layers}
+      search={c.search}
       flyOnSelect={false}
       reducedMotion={!c.motion}
       style={{ width: "100%", height: "100%" }}
@@ -316,8 +329,9 @@ const harness = {
   },
   presets: () => ({ "2d": Object.keys(GRAPH_PRESETS_2D), "3d": Object.keys(GRAPH_PRESETS_3D) }),
   /** The cosmos preset as the owner used it, with orbit paths on and the view-controls overlay. */
-  async mountCosmosControls(selected: string) {
+  async mountCosmosControls(selected: string, inBox = false) {
     reset();
+    if (inBox) small();
     host().style.background = "#02030a";
     const { nodes, links } = cosmosData(650, 900, 1);
     const ref = createRef<GraphScene3DHandle>();
@@ -325,6 +339,87 @@ const harness = {
     await waitFrames(60);
     handle = ref.current;
     return handle!.getState();
+  },
+  /** A 2D view with no controls overlay (so it draws its own full-screen button) and an `overlay` child. */
+  async mountFullscreen2d() {
+    reset();
+    small();
+    const { nodes, links } = cosmosData(160, 220, 1);
+    const ref = createRef<GraphViewHandle>();
+    root!.render(
+      <GraphView
+        ref={ref}
+        data={{ nodes, links }}
+        preset="network"
+        theme={{ base: "dark", typeColors: COSMOS_COLORS }}
+        defaultSelected="agent-0"
+        reducedMotion
+        overlay={<div data-harness-overlay="" style={{ position: "absolute", top: 12, left: 12, color: "#fff" }}>breadcrumbs</div>}
+        style={{ width: "100%", height: "100%" }}
+        aria-label="Full screen 2D"
+      />,
+    );
+    await waitFrames(10);
+    handle = ref.current;
+    return handle!.getState();
+  },
+  /**
+   * An agent's full-screen request, made from a timer after `ms`. Playwright's
+   * `evaluate` runs as a user gesture, so calling the handle from it directly
+   * would go native; a timer past Chrome's activation lifespan (5 s) carries
+   * no gesture, as an agent's MCP call does not.
+   */
+  agentFullscreenLater(ms: number) {
+    return new Promise<boolean>((resolve) => setTimeout(() => resolve(handle!.setFullscreen(true, { source: "agent" })), ms));
+  },
+  /** Where full screen stands: the handle's state, the root's attributes, what is inside the full-screen element, the canvas size. */
+  fullscreenProbe() {
+    const r = document.querySelector<HTMLElement>("[data-fancy-graph]");
+    const fe = document.fullscreenElement;
+    const canvas = r?.querySelector("canvas");
+    const s = handle!.getState() as { fullscreen?: boolean; fullscreenMode?: string | null; selected?: string | null };
+    const box = r?.getBoundingClientRect();
+    return {
+      state: { fullscreen: s.fullscreen ?? null, mode: s.fullscreenMode ?? null, selected: s.selected ?? null },
+      attr: r?.getAttribute("data-fancy-3d-fullscreen") ?? null,
+      attrMode: r?.getAttribute("data-fancy-3d-fullscreen-mode") ?? null,
+      nativeIsRoot: fe !== null && fe === r,
+      controlsInside: !!r?.querySelector("[data-fancy-graph-controls]"),
+      overlayInside: !!r?.querySelector("[data-harness-overlay]"),
+      root: box ? [Math.round(box.width), Math.round(box.height)] : null,
+      canvas: canvas ? [canvas.clientWidth, canvas.clientHeight] : null,
+      viewport: [window.innerWidth, window.innerHeight],
+    };
+  },
+  /** The synthetic-centre surface on the mounted cosmos: counts, handles, a node's neighbours, focus stepping. */
+  syntheticProbe(id: string) {
+    const h = cosmosRef.current!;
+    const r = document.querySelector("[data-fancy-graph]");
+    const s = h.getState() as unknown as Record<string, unknown>;
+    const nb = h.neighbors(id);
+    const firstSynthetic = nb.findIndex((n) => n.synthetic === true);
+    const syntheticLast = firstSynthetic < 0 || nb.slice(firstSynthetic).every((n) => n.synthetic === true);
+    const synthIds = new Set(nb.filter((n) => n.synthetic).map((n) => n.id));
+    // Nothing is focused on mount: the first step lands on the best-connected INPUT node, never a core.
+    const stepped = h.getState().focused === null ? h.stepFocus("next") : "(already focused)";
+    const input = COSMOS_DATA[cosmosCase!.data]();
+    return {
+      input: [input.nodes.length, input.links.length],
+      nodeCount: s.nodeCount,
+      linkCount: s.linkCount,
+      syntheticNodeCount: s.syntheticNodeCount,
+      syntheticLinkCount: s.syntheticLinkCount,
+      attrNodes: r?.getAttribute("data-fancy-graph-node-count"),
+      attrLinks: r?.getAttribute("data-fancy-graph-link-count"),
+      attrSyntheticNodes: r?.getAttribute("data-fancy-graph-synthetic-node-count"),
+      ariaLabel: r?.querySelector("canvas")?.getAttribute("aria-label") ?? null,
+      matches: s.matches,
+      neighbors: nb.length,
+      neighborSynthetic: nb.filter((n) => n.synthetic).length,
+      syntheticLast,
+      syntheticAreCores: [...synthIds].every((x) => x.startsWith("cosmos:")),
+      stepped,
+    };
   },
   async mount2d(opts: MountOptions) {
     reset();

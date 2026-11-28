@@ -12,15 +12,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2026-11-28
 
-**Every view goes full screen, with its whole control UX inside.**
+**Every view goes full screen, with its whole control UX inside, and the
+cosmos is galactic out of the box again.** This release folds in 0.4.1, which
+was never published: with 0.4.0's default lens a dense graph collapsed into a
+few giant systems, each a dartboard of dozens of orbit rings, and the host's
+grouping changed nothing. Now the grouping shapes the sky.
 
-**Consumer action:** none for most. Two things to know: (1) a full-screen
+**Consumer action:** none for most. Four things to know: (1) a full-screen
 button now shows in the bottom-right corner of a view with no `controls`
 overlay (`fullscreenButton={false}` hides it); (2) the package now has a
 required peer, `@particle-academy/fancy-3d >=0.7.0` (React only; npm 7+
 installs it), and the 3D peer moved to `@particle-academy/fancy-3d-three
 >=0.5.0`. To take breadcrumbs or a fact card into full screen, render them in
-the new `overlay` prop instead of beside the view.
+the new `overlay` prop instead of beside the view; (3) the cosmos forms a
+galaxy per node group by default. For 0.4.0's galaxy-less sky back, pass
+`cosmos={{ galaxies: false }}` (or `"none"`) and the layout is 0.4.0's exactly
+(the suite holds it to fingerprints taken from the 0.4.0 code); (4) those
+default galaxy centres are synthetic nodes (`cosmos:galaxy:<group>`,
+`synthetic: true`), as any `{ field }` galaxy lens already made in 0.4.0, and
+they are now kept out of every count, search and neighbour list (see Fixed).
 
 ### Added
 
@@ -52,9 +62,40 @@ the new `overlay` prop instead of beside the view.
   `GraphFullscreenHandle`, `GraphFullscreenState`.
 - `<GraphScene3D>` inside your own `<Stage>` uses that Stage's full screen;
   `<GraphView3D>` owns it on its root, and its Stage defers.
+- `autoGalaxyField(nodes)` and `AUTO_GALAXY_FIELDS` (the field the default
+  lens groups by), `orbitSystemWeights` and `orbitFade` (the orbit-path
+  selection and fade, headless) and `COSMOS_ORBIT_DEFAULTS`, from `./three`.
+- Browser captures of the kit map grouped by family and by language, and the
+  typescript system up close (`docs/presets/3d-cosmos-kit*.png`); the harness
+  regroups a mounted view and fails if the galaxies do not re-form. It also
+  checks full screen (the native API by a click, the fallback for an agent's
+  request, Esc, 2D and 3D, the view growing to the viewport and back) and the
+  synthetic counts, search, neighbour order and first focus step.
 
 ### Changed
 
+- **Default: a spiral galaxy per node group.** With no `galaxies` lens and two
+  or more distinct `node.group` values (or `data.type` values), each group is
+  a spiral galaxy around a core node. Changing the grouping re-forms the
+  galaxies, and the bodies fly to their new places (the 1.2 s transition).
+  An explicit `galaxies: { by: ... }` still wins. Not under
+  `systems: { by: { relation } }`, whose hierarchy already says what orbits
+  what (its groups usually name body kinds: star, planet, moon). **Opt out
+  with `galaxies: false`** (or `"none"`, or `null`).
+- **Systems in a galaxy stay small.** A new limit,
+  `limits.maxPlanetsPerSystem` (default 12), caps the planets and moons one
+  system holds; a `"hubs"` system also holds at most `hubShare` (a new cosmos
+  option, default 0.2) of its galaxy. The overflow becomes stars of their own
+  on the same galaxy's arms, the best-connected staying with the star. A
+  membership link given up this way is drawn as light. Without galaxies,
+  0.4.0's systems stand unchanged.
+- **Orbit paths are on by default, and subtle.** Faint rings (alpha 0.07,
+  0.3 highlighted, 0.02 dimmed), drawn only for the selected, focused or
+  hovered system and the 3 systems nearest the camera (fainter with rank),
+  each fading out as it shrinks on screen. `cosmosOrbits({ nearest, fadePx,
+  alpha })` tunes it; `layers={{ orbits: false }}` hides them as before.
+- **A lone star on a galaxy's arm is named up close**, as a free star is, so
+  the overflow stars stay legible.
 - **New required peer: `@particle-academy/fancy-3d` `>=0.7.0 <2.0`.** Only its
   React-only `./fullscreen` subpath is used, by every entry that renders a view
   (the headless `./core` and `./worker` do not). npm 7+ installs it.
@@ -74,7 +115,7 @@ the new `overlay` prop instead of beside the view.
   `data-fancy-graph-toggle` and an agent addressing `layer:<id>` or `motion`
   found nothing. It now accepts either placement. **Nothing to do.**
 - **The cosmos's synthetic centres no longer leak into the public surface.**
-  Since galaxies form by default (0.4.1), the `cosmos:galaxy:*` /
+  Since galaxies form by default (above), the `cosmos:galaxy:*` /
   `cosmos:system:*` nodes `prepareCosmos` adds (`synthetic: true`) were counted
   and listed as if they were the input's (lab run 1563: 45 nodes and 85 links
   reported for data of 40 and 45, and `neighbors(n4)` led with the core). Now:
@@ -103,53 +144,6 @@ the new `overlay` prop instead of beside the view.
   **Consumer action: none**, unless you subtracted the synthetic centres from
   `nodeCount` yourself; stop, or you will subtract them twice. An agent bridge
   reading `getState()` and `neighbors()` gets the corrected values as is.
-
-## [0.4.1] - 2026-11-28
-
-**The cosmos is galactic out of the box again.** With 0.4.0's default lens a
-dense graph collapsed into a few giant systems, each a dartboard of dozens of
-orbit rings, and the host's grouping changed nothing. Now the grouping shapes
-the sky.
-
-**Consumer action:** none, unless you want 0.4.0's galaxy-less sky back: pass
-`cosmos={{ galaxies: false }}` (or `"none"`) and the layout is 0.4.0's exactly
-(the suite holds it to fingerprints taken from the 0.4.0 code). If you count
-nodes, the default galaxy centres are synthetic nodes (`cosmos:galaxy:<group>`,
-`synthetic: true`), as any `{ field }` galaxy lens already made in 0.4.0.
-
-### Changed
-
-- **Default: a spiral galaxy per node group.** With no `galaxies` lens and two
-  or more distinct `node.group` values (or `data.type` values), each group is
-  a spiral galaxy around a core node. Changing the grouping re-forms the
-  galaxies, and the bodies fly to their new places (the 1.2 s transition).
-  An explicit `galaxies: { by: ... }` still wins. Not under
-  `systems: { by: { relation } }`, whose hierarchy already says what orbits
-  what (its groups usually name body kinds: star, planet, moon). **Opt out
-  with `galaxies: false`** (or `"none"`, or `null`).
-- **Systems in a galaxy stay small.** A new limit,
-  `limits.maxPlanetsPerSystem` (default 12), caps the planets and moons one
-  system holds; a `"hubs"` system also holds at most `hubShare` (a new cosmos
-  option, default 0.2) of its galaxy. The overflow becomes stars of their own
-  on the same galaxy's arms, the best-connected staying with the star. A
-  membership link given up this way is drawn as light. Without galaxies,
-  0.4.0's systems stand unchanged.
-- **Orbit paths are on by default, and subtle.** Faint rings (alpha 0.07,
-  0.3 highlighted, 0.02 dimmed), drawn only for the selected, focused or
-  hovered system and the 3 systems nearest the camera (fainter with rank),
-  each fading out as it shrinks on screen. `cosmosOrbits({ nearest, fadePx,
-  alpha })` tunes it; `layers={{ orbits: false }}` hides them as before.
-- **A lone star on a galaxy's arm is named up close**, as a free star is, so
-  the overflow stars stay legible.
-
-### Added
-
-- `autoGalaxyField(nodes)` and `AUTO_GALAXY_FIELDS` (the field the default
-  lens groups by), `orbitSystemWeights` and `orbitFade` (the orbit-path
-  selection and fade, headless) and `COSMOS_ORBIT_DEFAULTS`, from `./three`.
-- Browser captures of the kit map grouped by family and by language, and the
-  typescript system up close (`docs/presets/3d-cosmos-kit*.png`); the harness
-  regroups a mounted view and fails if the galaxies do not re-form.
 
 ## [0.4.0] - 2026-11-28
 

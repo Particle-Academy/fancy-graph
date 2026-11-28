@@ -147,7 +147,7 @@ with **lenses**, plain JSON on the `cosmos` prop:
 | **Up close**: the typescript system, capped at 12 planets with faint orbit rings, its overflow named along the arm.<br>![Cosmos kit close](docs/presets/3d-cosmos-kit-close.png) | **A constellation selected**: its figure lit and its members named.<br>![Cosmos constellation](docs/presets/3d-cosmos-constellation.png) |
 
 Upgrading from 0.3.0, where the cosmos made a galaxy per type by itself: since
-0.4.1 it does again (by `node.group`), and
+0.5.0 it does again (by `node.group`), and
 `cosmos={{ galaxies: { by: { field: "type" } } }}` still asks for it
 explicitly. The [changelog](./CHANGELOG.md) lists the rest.
 

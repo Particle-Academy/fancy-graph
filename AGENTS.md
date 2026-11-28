@@ -102,7 +102,7 @@ Gravity places, light draws. Tell it which relations are gravity with
 }} />
 ```
 
-- **Galaxies by group, by default (0.4.1).** With no `galaxies` lens and two or
+- **Galaxies by group, by default (0.5.0).** With no `galaxies` lens and two or
   more distinct `node.group` values (or `data.type` values), each group is a
   spiral galaxy around a `cosmos:galaxy:<group>` core, so changing the
   grouping re-forms the galaxies and the bodies fly there. Not under
@@ -113,7 +113,7 @@ Gravity places, light draws. Tell it which relations are gravity with
   galaxy. The rest become stars of their own on the same galaxy's arms, best
   connected kept closest to the star.
 - **Upgrading from 0.3.0** (galaxy per type was automatic): it is again, from
-  0.4.1. `cosmos={{ galaxies: { by: { field: "type" } } }}` still asks for it
+  0.5.0. `cosmos={{ galaxies: { by: { field: "type" } } }}` still asks for it
   explicitly. `field: "type"` (and `"group"`) read `node.group`; any other
   field reads `node.data[field]` first. A field holding an array is several
   memberships.
@@ -131,7 +131,7 @@ Gravity places, light draws. Tell it which relations are gravity with
   `synthetic: true`. Skip `node.synthetic` when you list nodes. Using `layout={cosmosLayout(...)}` without the preset?
   Pass `data={prepareCosmos(data, lenses)}`.
 - **What is drawn**: gravity is the orbit (the `orbits` layer, on by default
-  since 0.4.1, draws faint rings only for the selected, focused or hovered
+  since 0.5.0, draws faint rings only for the selected, focused or hovered
   system and the 3 nearest the camera, fading out as they shrink on screen;
   tune with `cosmosOrbits({ nearest, fadePx, alpha })`); light is everything
   else, as arcs that glow for the focus. In the default `"focus"` link mode
@@ -226,7 +226,7 @@ carries `data-fancy-graph-preset` and `data-fancy-graph-theme`.
   over the preset's declared layers (`getLayers()` lists them, with labels and
   state). In: a partial map, `{ orbits: true, labels: false }`; out: the full
   map. Built-in ids: `links`, `labels`, `clusters`, `background`; the cosmos
-  adds `cores`, `orbits` (on, subtle, since 0.4.1), `comets`, and with constellations
+  adds `cores`, `orbits` (on, subtle, since 0.5.0), `comets`, and with constellations
   `constellations` plus `constellation:<id>` each. A preset declares them in `layers:
   GraphLayerSpec[]`; a custom 3D layer joins one with `layer: "<id>"`, else it
   belongs to its slot. `links: false` hides links whatever the mode.
